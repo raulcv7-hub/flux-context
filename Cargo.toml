@@ -1,15 +1,9 @@
 [package]
-name = "Context"
-version = "0.1.0"
-edition = "2026"
-
-[dependencies]
-[package]
 name = "context_engine"
 version = "0.1.0"
-edition = "2026"
+edition = "2021"
 authors = ["Raul"]
-description = "High-performance AI Context Generator"
+description = "Volcador de proyectos."
 readme = "README.md"
 rust-version = "1.80"
 
