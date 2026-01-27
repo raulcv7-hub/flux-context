@@ -1,6 +1,49 @@
 [package]
 name = "Context"
 version = "0.1.0"
-edition = "2024"
+edition = "2026"
 
 [dependencies]
+[package]
+name = "context_engine"
+version = "0.1.0"
+edition = "2026"
+authors = ["Raul"]
+description = "High-performance AI Context Generator"
+readme = "README.md"
+rust-version = "1.80"
+
+[dependencies]
+# CLI & Arguments Parsing
+clap = { version = "4.5", features = ["derive", "cargo"] }
+
+# Error Handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Concurrency & Performance
+rayon = "1.10"
+
+# Filesystem & Traversal
+ignore = "0.4"
+
+# Serialization & Output
+quick-xml = { version = "0.39", features = ["serialize"] }
+serde = { version = "1.0", features = ["derive"] }
+
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+# Testing
+assert_cmd = "2.0"
+tempfile = "3.12"
+predicates = "3.1"
+
+[profile.release]
+# Optimization Profile
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
