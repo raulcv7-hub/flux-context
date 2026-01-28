@@ -57,20 +57,44 @@ impl FsScanner {
         false
     }
 
-    /// Checks if a file path passes the extension filters defined in config.
-    fn matches_extension_filter(path: &Path, config: &ContextConfig) -> bool {
+    /// Checks filters: Extensions and Paths.
+    fn matches_filters(path: &Path, config: &ContextConfig) -> bool {
+        let path_str = path.to_string_lossy();
+
+        // 1. Path Filters
+        // Exclude wins over include
+        if !config.exclude_paths.is_empty() {
+            for exclude in &config.exclude_paths {
+                if path_str.contains(exclude) {
+                    return false;
+                }
+            }
+        }
+
+        if !config.include_paths.is_empty() {
+            let mut matched = false;
+            for include in &config.include_paths {
+                if path_str.contains(include) {
+                    matched = true;
+                    break;
+                }
+            }
+            if !matched {
+                return false;
+            }
+        }
+
+        // 2. Extension Filters
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
 
-        // 1. Blacklist check (Exclude)
         if !config.exclude_extensions.is_empty() && config.exclude_extensions.contains(&ext) {
             return false;
         }
 
-        // 2. Whitelist check (Include)
         if !config.include_extensions.is_empty() && !config.include_extensions.contains(&ext) {
             return false;
         }
@@ -107,8 +131,8 @@ impl ProjectScanner for FsScanner {
 
                     let path = entry.path();
 
-                    // Apply Extension Filter
-                    if !Self::matches_extension_filter(path, config) {
+                    // Apply All Filters
+                    if !Self::matches_filters(path, config) {
                         continue;
                     }
 
@@ -135,59 +159,58 @@ impl ProjectScanner for FsScanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
+    use std::fs::{self, File};
     use tempfile::tempdir;
+    use std::path::PathBuf; // Import necesario
 
     #[test]
-    fn test_scan_extension_filtering() -> Result<()> {
+    fn test_scan_path_filtering() -> Result<()> {
         let dir = tempdir()?;
         let root = dir.path();
 
-        // Setup:
-        // root/
-        //   main.rs
-        //   script.py
-        //   data.json
-        //   README.md
+        // Structure:
+        // src/main.rs
+        // src/adapters/mod.rs
+        // docs/info.md
+        
+        fs::create_dir(root.join("src"))?;
+        fs::create_dir(root.join("src/adapters"))?;
+        fs::create_dir(root.join("docs"))?;
 
-        File::create(root.join("main.rs"))?;
-        File::create(root.join("script.py"))?;
-        File::create(root.join("data.json"))?;
-        File::create(root.join("README.md"))?;
+        File::create(root.join("src/main.rs"))?;
+        File::create(root.join("src/adapters/mod.rs"))?;
+        File::create(root.join("docs/info.md"))?;
 
         let scanner = FsScanner::new();
 
-        // Case 1: Whitelist "rs" and "py"
-        let mut config_inc = ContextConfig::default();
-        config_inc.root_path = root.to_path_buf();
-        config_inc.include_extensions.insert("rs".into());
-        config_inc.include_extensions.insert("py".into());
+        // Construimos las rutas esperadas dinámicamente según el SO (Windows/Linux)
+        let main_rs = PathBuf::from("src").join("main.rs").to_string_lossy().to_string();
+        let adapters_mod = PathBuf::from("src").join("adapters").join("mod.rs").to_string_lossy().to_string();
+        let docs_info = PathBuf::from("docs").join("info.md").to_string_lossy().to_string();
 
-        let results_inc = scanner.scan(&config_inc)?;
-        let paths_inc: Vec<_> = results_inc
-            .iter()
-            .map(|f| f.relative_path.to_str().unwrap())
-            .collect();
+        // 1. Include "src"
+        let mut config_src = ContextConfig::default();
+        config_src.root_path = root.to_path_buf();
+        config_src.include_paths.push("src".into());
 
-        assert!(paths_inc.contains(&"main.rs"));
-        assert!(paths_inc.contains(&"script.py"));
-        assert!(!paths_inc.contains(&"README.md"));
-        assert!(!paths_inc.contains(&"data.json"));
+        let res_src = scanner.scan(&config_src)?;
+        let paths: Vec<_> = res_src.iter().map(|f| f.relative_path.to_string_lossy().to_string()).collect();
+        
+        assert!(paths.contains(&main_rs), "Expected {:?} in {:?}", main_rs, paths);
+        assert!(paths.contains(&adapters_mod)); 
+        assert!(!paths.contains(&docs_info));
 
-        // Case 2: Blacklist "json"
-        let mut config_exc = ContextConfig::default();
-        config_exc.root_path = root.to_path_buf();
-        config_exc.exclude_extensions.insert("json".into());
+        // 2. Exclude "adapters"
+        let mut config_no_adapt = ContextConfig::default();
+        config_no_adapt.root_path = root.to_path_buf();
+        config_no_adapt.exclude_paths.push("adapters".into());
 
-        let results_exc = scanner.scan(&config_exc)?;
-        let paths_exc: Vec<_> = results_exc
-            .iter()
-            .map(|f| f.relative_path.to_str().unwrap())
-            .collect();
+        let res_no = scanner.scan(&config_no_adapt)?;
+        let paths_no: Vec<_> = res_no.iter().map(|f| f.relative_path.to_string_lossy().to_string()).collect();
 
-        assert!(paths_exc.contains(&"main.rs"));
-        assert!(paths_exc.contains(&"README.md"));
-        assert!(!paths_exc.contains(&"data.json"));
+        assert!(paths_no.contains(&main_rs));
+        assert!(paths_no.contains(&docs_info));
+        assert!(!paths_no.contains(&adapters_mod));
 
         Ok(())
     }

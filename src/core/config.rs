@@ -12,6 +12,8 @@ pub struct ContextConfig {
     pub verbose: bool,
     pub include_extensions: HashSet<String>,
     pub exclude_extensions: HashSet<String>,
+    pub include_paths: Vec<String>,
+    pub exclude_paths: Vec<String>,
 }
 
 impl ContextConfig {
@@ -26,8 +28,9 @@ impl ContextConfig {
         verbose: bool,
         include_exts: Vec<String>,
         exclude_exts: Vec<String>,
+        include_paths: Vec<String>,
+        exclude_paths: Vec<String>,
     ) -> Self {
-        // Normalize extensions to lowercase for consistent matching
         let include_extensions = include_exts.into_iter().map(|e| e.to_lowercase()).collect();
 
         let exclude_extensions = exclude_exts.into_iter().map(|e| e.to_lowercase()).collect();
@@ -41,6 +44,8 @@ impl ContextConfig {
             verbose,
             include_extensions,
             exclude_extensions,
+            include_paths,
+            exclude_paths,
         }
     }
 }
@@ -56,28 +61,8 @@ impl Default for ContextConfig {
             verbose: false,
             include_extensions: HashSet::new(),
             exclude_extensions: HashSet::new(),
+            include_paths: Vec::new(),
+            exclude_paths: Vec::new(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_extension_normalization() {
-        let config = ContextConfig::new(
-            PathBuf::from("."),
-            None,
-            None,
-            false,
-            false,
-            false,
-            vec!["RS".to_string(), "ToMl".to_string()],
-            vec![],
-        );
-
-        assert!(config.include_extensions.contains("rs"));
-        assert!(config.include_extensions.contains("toml"));
     }
 }

@@ -1,5 +1,4 @@
 //! Entry point for the Context Engine CLI.
-//! Parses arguments and orchestrates the execution.
 
 use arboard::Clipboard;
 use clap::Parser;
@@ -48,7 +47,15 @@ struct Cli {
 
     /// Exclude extensions (comma separated, e.g., "lock,txt").
     #[arg(short = 'x', long, value_delimiter = ',')]
-    exclude: Vec<String>,
+    exclude_extensions: Vec<String>,
+
+    /// Only include paths containing this string (can be used multiple times).
+    #[arg(short = 'i', long)]
+    include_path: Vec<String>,
+
+    /// Exclude paths containing this string (can be used multiple times).
+    #[arg(short = 'X', long)] // Uppercase X to avoid conflict with extension exclude
+    exclude_path: Vec<String>,
 
     /// Turn debugging information on.
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -69,7 +76,9 @@ fn main() -> anyhow::Result<()> {
         cli.clip,
         cli.verbose > 0,
         cli.extensions,
-        cli.exclude,
+        cli.exclude_extensions,
+        cli.include_path,
+        cli.exclude_path,
     );
 
     // 1. SCANNING
