@@ -5,6 +5,7 @@ use std::fs;
 use std::path::Path;
 
 /// Implementation of FileReader that reads from the local filesystem.
+#[derive(Default)]
 pub struct FsReader;
 
 impl FsReader {

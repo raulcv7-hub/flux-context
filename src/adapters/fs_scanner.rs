@@ -6,6 +6,7 @@ use crate::core::file::FileNode;
 use crate::ports::scanner::ProjectScanner;
 
 /// Implementation of ProjectScanner using the 'ignore' crate (ripgrep engine).
+#[derive(Default)]
 pub struct FsScanner;
 
 impl FsScanner {
@@ -44,10 +45,9 @@ impl FsScanner {
         }
 
         // Only check directory noise if it IS a directory to avoid false positives
-        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-            if NOISE_DIRS.contains(&file_name.as_ref()) {
-                return true;
-            }
+        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) 
+            && NOISE_DIRS.contains(&file_name.as_ref()) {
+            return true;
         }
 
         false
