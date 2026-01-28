@@ -1,7 +1,9 @@
+use serde::Serialize;
 use std::path::PathBuf;
 
 /// Enum representing the type of content found in a file.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "type", content = "data")]
 pub enum ContentType {
     Text(String),
     Binary,
@@ -9,7 +11,7 @@ pub enum ContentType {
 }
 
 /// Domain entity representing a processed file with its content and metadata.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FileContext {
     pub path: PathBuf,
     pub relative_path: PathBuf,

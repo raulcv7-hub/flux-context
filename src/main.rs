@@ -11,6 +11,7 @@ use tracing_subscriber::FmtSubscriber;
 
 use context_engine::adapters::fs_reader::FsReader;
 use context_engine::adapters::fs_scanner::FsScanner;
+use context_engine::adapters::output::json::JsonWriter;
 use context_engine::adapters::output::markdown::MarkdownWriter;
 use context_engine::adapters::output::xml::XmlWriter;
 use context_engine::core::config::{ContextConfig, OutputFormat};
@@ -172,6 +173,10 @@ fn generate_output_buffer(
         }
         OutputFormat::Markdown => {
             let writer = MarkdownWriter::new();
+            writer.write(files, config, &mut buffer)?;
+        }
+        OutputFormat::Json => {
+            let writer = JsonWriter::new();
             writer.write(files, config, &mut buffer)?;
         }
     }

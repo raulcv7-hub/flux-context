@@ -7,6 +7,7 @@ use std::path::PathBuf;
 pub enum OutputFormat {
     Xml,
     Markdown,
+    Json,
 }
 
 impl Default for OutputFormat {
