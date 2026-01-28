@@ -25,4 +25,6 @@ output.xml
 # Environment variables
 .env
 
+# Others
 /docs/INFO.md
+/tests/assets/

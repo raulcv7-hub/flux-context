@@ -7,12 +7,14 @@ use std::path::Path;
 use crate::adapters::parsers::FileParser;
 use crate::adapters::parsers::pdf::PdfParser;
 use crate::adapters::parsers::docx::DocxParser;
+use crate::adapters::parsers::excel::ExcelParser;
 use crate::adapters::parsers::fallback::PlainTextParser;
 
 /// Implementation of FileReader that acts as a Router for specific parsers.
 pub struct FsReader {
     pdf_parser: PdfParser,
     docx_parser: DocxParser,
+    excel_parser: ExcelParser,
     text_parser: PlainTextParser,
 }
 
@@ -28,6 +30,7 @@ impl FsReader {
         Self {
             pdf_parser: PdfParser::new(),
             docx_parser: DocxParser::new(),
+            excel_parser: ExcelParser::new(),
             text_parser: PlainTextParser::new(),
         }
     }
@@ -54,6 +57,7 @@ impl FileReader for FsReader {
         let parser_result = match extension.as_str() {
             "pdf" => self.pdf_parser.parse(&node.path),
             "docx" => self.docx_parser.parse(&node.path),
+            "xlsx" | "xls" => self.excel_parser.parse(&node.path),
             _ => self.text_parser.parse(&node.path),
         };
 
@@ -63,7 +67,7 @@ impl FileReader for FsReader {
                 (ContentType::Text(text), count)
             },
             Err(e) => {
-                if extension == "pdf" || extension == "docx" {
+                if ["pdf", "docx", "xlsx", "xls"].contains(&extension.as_str()) {
                     (ContentType::Error(e.to_string()), 0)
                 } else {
                     (ContentType::Binary, 0)
@@ -88,7 +92,6 @@ mod tests {
     use std::io::Write;
     use tempfile::tempdir;
 
-    /// Tests that the router correctly handles a text file using the Fallback parser.
     #[test]
     fn test_read_routing_text() {
         let dir = tempdir().unwrap();
