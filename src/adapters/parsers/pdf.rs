@@ -1,7 +1,7 @@
-use anyhow::{Context, Result};
-use std::path::Path;
-use std::fs;
 use crate::adapters::parsers::FileParser;
+use anyhow::{Context, Result};
+use std::fs;
+use std::path::Path;
 
 pub struct PdfParser;
 

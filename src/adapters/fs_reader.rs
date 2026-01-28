@@ -4,11 +4,11 @@ use crate::ports::reader::FileReader;
 use std::path::Path;
 
 // Import strategies
-use crate::adapters::parsers::FileParser;
-use crate::adapters::parsers::pdf::PdfParser;
 use crate::adapters::parsers::docx::DocxParser;
 use crate::adapters::parsers::excel::ExcelParser;
 use crate::adapters::parsers::fallback::PlainTextParser;
+use crate::adapters::parsers::pdf::PdfParser;
+use crate::adapters::parsers::FileParser;
 
 /// Implementation of FileReader that acts as a Router for specific parsers.
 pub struct FsReader {
@@ -53,7 +53,7 @@ impl FileReader for FsReader {
     /// Reads the file from disk, routing to specific parsers based on extension.
     fn read_file(&self, node: &FileNode) -> FileContext {
         let extension = self.detect_language(&node.path);
-        
+
         let parser_result = match extension.as_str() {
             "pdf" => self.pdf_parser.parse(&node.path),
             "docx" => self.docx_parser.parse(&node.path),
@@ -65,7 +65,7 @@ impl FileReader for FsReader {
             Ok(text) => {
                 let count = self.estimate_tokens(&text);
                 (ContentType::Text(text), count)
-            },
+            }
             Err(e) => {
                 if ["pdf", "docx", "xlsx", "xls"].contains(&extension.as_str()) {
                     (ContentType::Error(e.to_string()), 0)

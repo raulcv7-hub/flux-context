@@ -1,7 +1,7 @@
+use crate::adapters::parsers::FileParser;
 use anyhow::Result;
 use std::fs;
 use std::path::Path;
-use crate::adapters::parsers::FileParser;
 
 pub struct PlainTextParser;
 
