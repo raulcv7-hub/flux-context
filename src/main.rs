@@ -3,9 +3,15 @@
 
 use clap::Parser;
 use std::path::PathBuf;
-use tracing::{info, Level};
+use tracing::{info, error, Level};
 use tracing_subscriber::FmtSubscriber;
+use rayon::prelude::*;
+
 use context_engine::core::config::ContextConfig;
+use context_engine::ports::scanner::ProjectScanner;
+use context_engine::ports::reader::FileReader;
+use context_engine::adapters::fs_scanner::FsScanner;
+use context_engine::adapters::fs_reader::FsReader;
 
 /// Ingests project folders and serializes them into one file.
 #[derive(Parser, Debug)]
@@ -38,7 +44,7 @@ fn main() -> anyhow::Result<()> {
 
     info!("Starting Context Engine...");
 
-    let _config = ContextConfig::new(
+    let config = ContextConfig::new(
         cli.path,
         cli.output,
         cli.depth,
@@ -46,7 +52,31 @@ fn main() -> anyhow::Result<()> {
         cli.verbose > 0,
     );
 
-    info!("Configuration loaded. Scanning not yet implemented.");
+    // 1. SCANNING
+    info!("Phase 1: Scanning directory...");
+    let scanner = FsScanner::new();
+    let files = match scanner.scan(&config) {
+        Ok(f) => f,
+        Err(e) => {
+            error!("Scanning failed: {}", e);
+            return Err(e);
+        }
+    };
+    info!("Found {} files.", files.len());
+
+    // 2. READING (Parallel)
+    info!("Phase 2: Reading content...");
+    let reader = FsReader::new();
+    
+    let contexts: Vec<_> = files.par_iter()
+        .map(|node| reader.read_file(node))
+        .collect();
+
+    let total_tokens: usize = contexts.iter().map(|c| c.token_count).sum();
+    info!("Processed {} files. Total estimated tokens: {}", contexts.len(), total_tokens);
+
+    // 3. OUTPUT (Pending)
+    info!("Phase 3: Output generation not yet implemented.");
 
     Ok(())
 }
