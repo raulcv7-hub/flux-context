@@ -13,12 +13,15 @@ anyhow = "1.0"
 thiserror = "2.0"
 rayon = "1.10"
 ignore = "0.4"
-quick-xml = { version = "0.37", features = ["serialize"] }
+quick-xml = { version = "0.39.0", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = "0.4"
 arboard = "3.4"
+pdf-extract = "0.10.0"
+zip = "7.2.0" 
+regex = "1.10"
 
 [dev-dependencies]
 # Testing
