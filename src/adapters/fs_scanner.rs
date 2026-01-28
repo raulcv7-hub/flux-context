@@ -160,8 +160,8 @@ impl ProjectScanner for FsScanner {
 mod tests {
     use super::*;
     use std::fs::{self, File};
-    use tempfile::tempdir;
-    use std::path::PathBuf; // Import necesario
+    use std::path::PathBuf;
+    use tempfile::tempdir; // Import necesario
 
     #[test]
     fn test_scan_path_filtering() -> Result<()> {
@@ -172,7 +172,7 @@ mod tests {
         // src/main.rs
         // src/adapters/mod.rs
         // docs/info.md
-        
+
         fs::create_dir(root.join("src"))?;
         fs::create_dir(root.join("src/adapters"))?;
         fs::create_dir(root.join("docs"))?;
@@ -184,9 +184,19 @@ mod tests {
         let scanner = FsScanner::new();
 
         // Construimos las rutas esperadas dinámicamente según el SO (Windows/Linux)
-        let main_rs = PathBuf::from("src").join("main.rs").to_string_lossy().to_string();
-        let adapters_mod = PathBuf::from("src").join("adapters").join("mod.rs").to_string_lossy().to_string();
-        let docs_info = PathBuf::from("docs").join("info.md").to_string_lossy().to_string();
+        let main_rs = PathBuf::from("src")
+            .join("main.rs")
+            .to_string_lossy()
+            .to_string();
+        let adapters_mod = PathBuf::from("src")
+            .join("adapters")
+            .join("mod.rs")
+            .to_string_lossy()
+            .to_string();
+        let docs_info = PathBuf::from("docs")
+            .join("info.md")
+            .to_string_lossy()
+            .to_string();
 
         // 1. Include "src"
         let mut config_src = ContextConfig::default();
@@ -194,10 +204,18 @@ mod tests {
         config_src.include_paths.push("src".into());
 
         let res_src = scanner.scan(&config_src)?;
-        let paths: Vec<_> = res_src.iter().map(|f| f.relative_path.to_string_lossy().to_string()).collect();
-        
-        assert!(paths.contains(&main_rs), "Expected {:?} in {:?}", main_rs, paths);
-        assert!(paths.contains(&adapters_mod)); 
+        let paths: Vec<_> = res_src
+            .iter()
+            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .collect();
+
+        assert!(
+            paths.contains(&main_rs),
+            "Expected {:?} in {:?}",
+            main_rs,
+            paths
+        );
+        assert!(paths.contains(&adapters_mod));
         assert!(!paths.contains(&docs_info));
 
         // 2. Exclude "adapters"
@@ -206,7 +224,10 @@ mod tests {
         config_no_adapt.exclude_paths.push("adapters".into());
 
         let res_no = scanner.scan(&config_no_adapt)?;
-        let paths_no: Vec<_> = res_no.iter().map(|f| f.relative_path.to_string_lossy().to_string()).collect();
+        let paths_no: Vec<_> = res_no
+            .iter()
+            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .collect();
 
         assert!(paths_no.contains(&main_rs));
         assert!(paths_no.contains(&docs_info));

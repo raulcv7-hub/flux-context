@@ -11,8 +11,9 @@ use tracing_subscriber::FmtSubscriber;
 
 use context_engine::adapters::fs_reader::FsReader;
 use context_engine::adapters::fs_scanner::FsScanner;
+use context_engine::adapters::output::markdown::MarkdownWriter;
 use context_engine::adapters::output::xml::XmlWriter;
-use context_engine::core::config::ContextConfig;
+use context_engine::core::config::{ContextConfig, OutputFormat};
 use context_engine::ports::reader::FileReader;
 use context_engine::ports::scanner::ProjectScanner;
 use context_engine::ports::writer::ContextWriter;
@@ -29,6 +30,10 @@ struct Cli {
     #[arg(short, long)]
     output: Option<PathBuf>,
 
+    /// Output format (xml, markdown).
+    #[arg(short, long, value_enum, default_value_t = OutputFormat::Xml)]
+    format: OutputFormat,
+
     /// Copy the result to the system clipboard.
     #[arg(short, long, default_value_t = false)]
     clip: bool,
@@ -41,20 +46,20 @@ struct Cli {
     #[arg(long, default_value_t = false)]
     include_hidden: bool,
 
-    /// Filter by extension (comma separated, e.g., "rs,toml").
+    /// Filter by extension (comma separated).
     #[arg(short = 'e', long, value_delimiter = ',')]
     extensions: Vec<String>,
 
-    /// Exclude extensions (comma separated, e.g., "lock,txt").
+    /// Exclude extensions (comma separated).
     #[arg(short = 'x', long, value_delimiter = ',')]
     exclude_extensions: Vec<String>,
 
-    /// Only include paths containing this string (can be used multiple times).
+    /// Only include paths containing this string.
     #[arg(short = 'i', long)]
     include_path: Vec<String>,
 
-    /// Exclude paths containing this string (can be used multiple times).
-    #[arg(short = 'X', long)] // Uppercase X to avoid conflict with extension exclude
+    /// Exclude paths containing this string.
+    #[arg(short = 'X', long)]
     exclude_path: Vec<String>,
 
     /// Turn debugging information on.
@@ -71,6 +76,7 @@ fn main() -> anyhow::Result<()> {
     let config = ContextConfig::new(
         cli.path,
         cli.output.clone(),
+        cli.format,
         cli.depth,
         cli.include_hidden,
         cli.clip,
@@ -109,14 +115,12 @@ fn main() -> anyhow::Result<()> {
     );
 
     // 3. OUTPUT
-    info!("Phase 3: Generating output...");
-    let writer_strategy = XmlWriter::new();
+    info!("Phase 3: Generating output ({:?})...", config.output_format);
+
+    let buffer = generate_output_buffer(&contexts, &config)?;
 
     if config.to_clipboard {
-        let mut buffer = Vec::new();
-        writer_strategy.write(&contexts, &config, &mut buffer)?;
         let output_str = String::from_utf8(buffer.clone())?;
-
         match Clipboard::new() {
             Ok(mut clipboard) => {
                 if let Err(e) = clipboard.set_text(&output_str) {
@@ -140,19 +144,39 @@ fn main() -> anyhow::Result<()> {
             Some(path) => {
                 let file = File::create(path)?;
                 let mut buf_writer = BufWriter::new(file);
-                writer_strategy.write(&contexts, &config, &mut buf_writer)?;
+                buf_writer.write_all(&buffer)?;
                 info!("Context written to: {:?}", path);
             }
             None => {
                 let stdout = io::stdout();
-                let handle = stdout.lock();
-                let mut buf_writer = BufWriter::new(handle);
-                writer_strategy.write(&contexts, &config, &mut buf_writer)?;
+                let mut handle = stdout.lock();
+                handle.write_all(&buffer)?;
             }
         }
     }
 
     Ok(())
+}
+
+// Helper to select strategy and write to memory buffer
+fn generate_output_buffer(
+    files: &[context_engine::core::content::FileContext],
+    config: &ContextConfig,
+) -> anyhow::Result<Vec<u8>> {
+    let mut buffer = Vec::new();
+
+    match config.output_format {
+        OutputFormat::Xml => {
+            let writer = XmlWriter::new();
+            writer.write(files, config, &mut buffer)?;
+        }
+        OutputFormat::Markdown => {
+            let writer = MarkdownWriter::new();
+            writer.write(files, config, &mut buffer)?;
+        }
+    }
+
+    Ok(buffer)
 }
 
 fn init_logging(verbosity: u8) {
