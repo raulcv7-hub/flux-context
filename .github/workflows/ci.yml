@@ -1,0 +1,42 @@
+name: Rust CI
+
+# 1. TRIGGER
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # A. Descargar tu código en la máquina virtual
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # B. Instalar/Configurar caché de Rust (Para que no compile las dependencias desde 0 cada vez)
+      - name: Cache Cargo registry & target
+        uses: swatinem/rust-cache@v2
+
+      # C. Comprobar formato (cargo fmt)
+      - name: Check Formatting
+        run: cargo fmt -- --check
+
+      # D. Compilar
+      - name: Build
+        run: cargo build --verbose
+
+      # E. Ejecutar Tests
+      - name: Run Tests
+        run: cargo test --verbose
+
+      # F. Auditoría con Clippy
+      - name: Lint with Clippy
+        run: cargo clippy -- -W clippy::pedantic
+        continue-on-error: true
