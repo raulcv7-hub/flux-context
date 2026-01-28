@@ -24,3 +24,5 @@ output.xml
 
 # Environment variables
 .env
+
+/docs/INFO.md
