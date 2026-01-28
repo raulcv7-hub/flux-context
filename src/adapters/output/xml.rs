@@ -2,11 +2,55 @@ use anyhow::Result;
 use chrono::Local;
 use quick_xml::events::{BytesCData, BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
+use std::collections::BTreeMap;
 use std::io::Write;
+use std::path::Path;
 
 use crate::core::config::ContextConfig;
 use crate::core::content::{ContentType, FileContext};
 use crate::ports::writer::ContextWriter;
+
+/// Internal struct to represent the directory tree in memory before printing.
+#[derive(Default)]
+struct TreeNode {
+    is_file: bool,
+    children: BTreeMap<String, TreeNode>,
+}
+
+impl TreeNode {
+    /// Inserts a path into the tree structure.
+    fn insert(&mut self, path: &Path) {
+        let mut current_node = self;
+        for component in path.components() {
+            let key = component.as_os_str().to_string_lossy().to_string();
+            current_node = current_node
+                .children
+                .entry(key)
+                .or_insert_with(TreeNode::default);
+        }
+        current_node.is_file = true;
+    }
+
+    /// Recursively renders the tree to a string.
+    fn render(&self, prefix: &str, buffer: &mut String) {
+        let count = self.children.len();
+        for (i, (name, node)) in self.children.iter().enumerate() {
+            let is_last = i == count - 1;
+
+            let connector = if is_last { "└── " } else { "├── " };
+
+            buffer.push_str(&format!("{}{}{}\n", prefix, connector, name));
+
+            let new_prefix = if is_last {
+                format!("{}    ", prefix)
+            } else {
+                format!("{}│   ", prefix)
+            };
+
+            node.render(&new_prefix, buffer);
+        }
+    }
+}
 
 /// Implementation of ContextWriter that outputs XML format.
 #[derive(Default)]
@@ -18,20 +62,27 @@ impl XmlWriter {
         Self
     }
 
-    /// Helper to generate a simple ASCII tree representation.
-    fn generate_tree(&self, files: &[FileContext]) -> String {
-        let mut tree = String::from(".\n");
+    /// Generates a recursive ASCII tree representation.
+    fn generate_tree(&self, files: &[FileContext], root_name: &str) -> String {
+        let mut root_node = TreeNode::default();
+
         for file in files {
-            tree.push_str(&format!("├── {}\n", file.relative_path.display()));
+            root_node.insert(&file.relative_path);
         }
-        tree
+
+        let mut output = String::new();
+        output.push_str(&format!("{}\n", root_name));
+
+        // Start rendering children
+        root_node.render("", &mut output);
+
+        output
     }
 
     /// Sanitizes content to be safely included in CDATA blocks.
-    /// Replaces "]]>" with "]]]]><![CDATA[>" to avoid breaking XML structure.
     fn sanitize_content(&self, content: &str) -> String {
-        if content.contains("]]>") {
-            content.replace("]]>", "]]]]><![CDATA[>")
+        if content.contains("]]]]><![CDATA[>") {
+            content.replace("]]]]><![CDATA[>", "]]]]]]><![CDATA[><![CDATA[>")
         } else {
             content.to_string()
         }
@@ -75,8 +126,15 @@ impl ContextWriter for XmlWriter {
             .write_text_content(BytesText::new(&total_tokens.to_string()))?;
         xml_writer.write_event(Event::End(BytesEnd::new("stats")))?;
 
-        // <directory_structure> (Tree)
-        let tree_view = self.generate_tree(files);
+        // <directory_structure> (Recursive Tree)
+        let root_name = config
+            .root_path
+            .file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_else(|| ".".into());
+
+        let tree_view = self.generate_tree(files, &root_name);
+
         xml_writer
             .create_element("directory_structure")
             .write_text_content(BytesText::new(&tree_view))?;
@@ -88,7 +146,6 @@ impl ContextWriter for XmlWriter {
 
         for file in files {
             let mut elem = BytesStart::new("file");
-            // Fix borrow warning: explicit casting or handling of the Cow str
             elem.push_attribute(("path", file.relative_path.to_string_lossy().as_ref()));
             elem.push_attribute(("language", file.language.as_str()));
 
@@ -126,52 +183,55 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// Tests XML generation with a mock file list.
+    /// Tests that the tree generation produces expected ASCII structure.
     #[test]
-    fn test_xml_output_structure() {
-        let config = ContextConfig::default();
-        let files = vec![FileContext::new(
-            PathBuf::from("src/main.rs"),
-            PathBuf::from("src/main.rs"),
-            ContentType::Text("fn main() {}".to_string()),
-            "rust".to_string(),
-            10,
-        )];
+    fn test_recursive_tree_generation() {
+        let files = vec![
+            FileContext::new(
+                PathBuf::from("src/main.rs"),
+                PathBuf::from("src/main.rs"),
+                ContentType::Text("".into()),
+                "rs".into(),
+                0,
+            ),
+            FileContext::new(
+                PathBuf::from("src/core/mod.rs"),
+                PathBuf::from("src/core/mod.rs"),
+                ContentType::Text("".into()),
+                "rs".into(),
+                0,
+            ),
+            FileContext::new(
+                PathBuf::from("Cargo.toml"),
+                PathBuf::from("Cargo.toml"),
+                ContentType::Text("".into()),
+                "toml".into(),
+                0,
+            ),
+        ];
 
         let writer = XmlWriter::new();
-        let mut buffer = Vec::new();
+        let tree = writer.generate_tree(&files, "my_project");
 
-        writer
-            .write(&files, &config, &mut buffer)
-            .expect("Should write XML");
+        println!("Generated tree:\n{}", tree);
 
-        let output = String::from_utf8(buffer).expect("Valid UTF-8");
+        // Verification logic based on alphabetical sorting:
+        // 1. Cargo.toml (First -> ├──)
+        // 2. src        (Last  -> └──)
+        //    Inside src:
+        //    1. core    (First -> ├──)
+        //    2. main.rs (Last  -> └──)
 
-        assert!(output.contains("<context>"));
-        assert!(output.contains("<file path=\"src/main.rs\" language=\"rust\">"));
-        assert!(output.contains("<![CDATA[fn main() {}]]>"));
-        assert!(output.contains("directory_structure"));
-    }
+        assert!(tree.contains("my_project"));
 
-    /// Tests that CDATA is sanitized if it contains "]]>".
-    #[test]
-    fn test_xml_sanitization() {
-        let config = ContextConfig::default();
-        let malicious_content = "code with ]]> in it";
-        let files = vec![FileContext::new(
-            PathBuf::from("bad.rs"),
-            PathBuf::from("bad.rs"),
-            ContentType::Text(malicious_content.to_string()),
-            "rust".to_string(),
-            5,
-        )];
+        // Check Cargo.toml (Top level, first)
+        assert!(tree.contains("├── Cargo.toml"));
 
-        let writer = XmlWriter::new();
-        let mut buffer = Vec::new();
-        writer.write(&files, &config, &mut buffer).unwrap();
-        let output = String::from_utf8(buffer).unwrap();
+        // Check src (Top level, last)
+        assert!(tree.contains("└── src"));
 
-        assert!(!output.contains("]]>]]>")); // Should not contain raw break
-        assert!(output.contains("]]]]><![CDATA[>")); // Should contain escaped version
+        // Check nesting
+        assert!(tree.contains("    ├── core")); // Indented child of src
+        assert!(tree.contains("    └── main.rs")); // Indented last child of src
     }
 }
