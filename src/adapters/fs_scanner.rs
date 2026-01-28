@@ -1,37 +1,30 @@
+use anyhow::Result;
+use ignore::{DirEntry, WalkBuilder};
+use std::path::Path;
+use tracing::{debug, warn};
+
 use crate::core::config::ContextConfig;
 use crate::core::file::FileNode;
 use crate::ports::scanner::ProjectScanner;
-use anyhow::Result;
-use ignore::{DirEntry, WalkBuilder};
-use tracing::{debug, warn};
 
-/// Implementation of ProjectScanner using the 'ignore' crate (ripgrep engine).
 #[derive(Default)]
 pub struct FsScanner;
 
 impl FsScanner {
-    /// Creates a new instance of FsScanner.
     pub fn new() -> Self {
         Self
     }
 
-    /// Determines if a specific entry should be ignored based on business rules
-    /// (e.g., Lockfiles, noisy directories) regardless of gitignore.
     fn is_noise(entry: &DirEntry) -> bool {
         let file_name = entry.file_name().to_string_lossy();
 
-        // Nivel 1 & 2: Hard Ignores & Ecosystem Noise
         const NOISE_FILES: &[&str] = &[
-            // Rust
             "Cargo.lock",
-            // JS/Node
             "package-lock.json",
             "yarn.lock",
             "pnpm-lock.yaml",
-            // Python
             "poetry.lock",
             "Pipfile.lock",
-            // System
             ".DS_Store",
             "Thumbs.db",
         ];
@@ -55,7 +48,6 @@ impl FsScanner {
             return true;
         }
 
-        // Only check directory noise if it IS a directory to avoid false positives
         if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
             && NOISE_DIRS.contains(&file_name.as_ref())
         {
@@ -64,16 +56,33 @@ impl FsScanner {
 
         false
     }
+
+    /// Checks if a file path passes the extension filters defined in config.
+    fn matches_extension_filter(path: &Path, config: &ContextConfig) -> bool {
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        // 1. Blacklist check (Exclude)
+        if !config.exclude_extensions.is_empty() && config.exclude_extensions.contains(&ext) {
+            return false;
+        }
+
+        // 2. Whitelist check (Include)
+        if !config.include_extensions.is_empty() && !config.include_extensions.contains(&ext) {
+            return false;
+        }
+
+        true
+    }
 }
 
 impl ProjectScanner for FsScanner {
-    /// Scans the filesystem based on the provided configuration.
     fn scan(&self, config: &ContextConfig) -> Result<Vec<FileNode>> {
         let root = &config.root_path;
-        debug!(
-            "Starting scan at: {:?} with depth: {:?}",
-            root, config.max_depth
-        );
+        debug!("Starting scan at: {:?} with filters", root);
 
         let mut builder = WalkBuilder::new(root);
 
@@ -92,20 +101,24 @@ impl ProjectScanner for FsScanner {
         for result in builder.build() {
             match result {
                 Ok(entry) => {
-                    // We only care about files for the final list
                     if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
                         continue;
                     }
 
-                    let path = entry.path().to_path_buf();
+                    let path = entry.path();
 
-                    // Calculate relative path for display
-                    let relative_path = match path.strip_prefix(root) {
+                    // Apply Extension Filter
+                    if !Self::matches_extension_filter(path, config) {
+                        continue;
+                    }
+
+                    let path_buf = path.to_path_buf();
+                    let relative_path = match path_buf.strip_prefix(root) {
                         Ok(p) => p.to_path_buf(),
-                        Err(_) => path.clone(),
+                        Err(_) => path_buf.clone(),
                     };
 
-                    files.push(FileNode::new(path, relative_path));
+                    files.push(FileNode::new(path_buf, relative_path));
                 }
                 Err(err) => {
                     warn!("Skipping file due to error: {}", err);
@@ -122,53 +135,59 @@ impl ProjectScanner for FsScanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
+    use std::fs::File;
     use tempfile::tempdir;
 
-    /// Tests that the scanner respects gitignore logic and depth.
     #[test]
-    fn test_scan_fs_mechanics() -> Result<()> {
+    fn test_scan_extension_filtering() -> Result<()> {
         let dir = tempdir()?;
         let root = dir.path();
 
-        // Create structure:
-        // /root
-        //   file1.txt
-        //   .hidden_file
-        //   ignored_dir/
-        //     file2.txt
-        //   .gitignore (content: "ignored_dir/")
+        // Setup:
+        // root/
+        //   main.rs
+        //   script.py
+        //   data.json
+        //   README.md
 
-        File::create(root.join("file1.txt"))?;
-        File::create(root.join(".hidden_file"))?;
-        fs::create_dir(root.join("ignored_dir"))?;
-        File::create(root.join("ignored_dir/file2.txt"))?;
-        fs::write(root.join(".gitignore"), "ignored_dir/")?;
+        File::create(root.join("main.rs"))?;
+        File::create(root.join("script.py"))?;
+        File::create(root.join("data.json"))?;
+        File::create(root.join("README.md"))?;
 
         let scanner = FsScanner::new();
 
-        // Case 1: Default scan (Should find file1.txt, ignore hidden, ignore gitignored)
-        let config = ContextConfig::new(root.to_path_buf(), None, None, false, false, false);
-        let results = scanner.scan(&config)?;
+        // Case 1: Whitelist "rs" and "py"
+        let mut config_inc = ContextConfig::default();
+        config_inc.root_path = root.to_path_buf();
+        config_inc.include_extensions.insert("rs".into());
+        config_inc.include_extensions.insert("py".into());
 
-        let found_paths: Vec<_> = results
+        let results_inc = scanner.scan(&config_inc)?;
+        let paths_inc: Vec<_> = results_inc
             .iter()
-            .map(|n| n.relative_path.to_string_lossy().to_string())
+            .map(|f| f.relative_path.to_str().unwrap())
             .collect();
 
-        assert!(found_paths.contains(&"file1.txt".to_string()));
-        assert!(!found_paths.contains(&".hidden_file".to_string()));
-        assert!(!found_paths.contains(&"ignored_dir/file2.txt".to_string()));
+        assert!(paths_inc.contains(&"main.rs"));
+        assert!(paths_inc.contains(&"script.py"));
+        assert!(!paths_inc.contains(&"README.md"));
+        assert!(!paths_inc.contains(&"data.json"));
 
-        // Case 2: Include hidden
-        let config_hidden = ContextConfig::new(root.to_path_buf(), None, None, true, false, false);
-        let results_hidden = scanner.scan(&config_hidden)?;
-        let found_paths_hidden: Vec<_> = results_hidden
+        // Case 2: Blacklist "json"
+        let mut config_exc = ContextConfig::default();
+        config_exc.root_path = root.to_path_buf();
+        config_exc.exclude_extensions.insert("json".into());
+
+        let results_exc = scanner.scan(&config_exc)?;
+        let paths_exc: Vec<_> = results_exc
             .iter()
-            .map(|n| n.relative_path.to_string_lossy().to_string())
+            .map(|f| f.relative_path.to_str().unwrap())
             .collect();
 
-        assert!(found_paths_hidden.contains(&".hidden_file".to_string()));
+        assert!(paths_exc.contains(&"main.rs"));
+        assert!(paths_exc.contains(&"README.md"));
+        assert!(!paths_exc.contains(&"data.json"));
 
         Ok(())
     }

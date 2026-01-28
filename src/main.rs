@@ -18,15 +18,15 @@ use context_engine::ports::reader::FileReader;
 use context_engine::ports::scanner::ProjectScanner;
 use context_engine::ports::writer::ContextWriter;
 
-/// Ingests project folders and serializes them into one file.
+/// High-performance AI Context Generator.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Path to the project root to scan. Defaults to current directory.
+    /// Path to the project root to scan.
     #[arg(default_value = ".")]
     path: PathBuf,
 
-    /// Optional output file path. If not provided, prints to stdout.
+    /// Optional output file path.
     #[arg(short, long)]
     output: Option<PathBuf>,
 
@@ -38,9 +38,17 @@ struct Cli {
     #[arg(short, long)]
     depth: Option<usize>,
 
-    /// Include hidden files and directories (starting with dot).
+    /// Include hidden files and directories.
     #[arg(long, default_value_t = false)]
     include_hidden: bool,
+
+    /// Filter by extension (comma separated, e.g., "rs,toml").
+    #[arg(short = 'e', long, value_delimiter = ',')]
+    extensions: Vec<String>,
+
+    /// Exclude extensions (comma separated, e.g., "lock,txt").
+    #[arg(short = 'x', long, value_delimiter = ',')]
+    exclude: Vec<String>,
 
     /// Turn debugging information on.
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -60,6 +68,8 @@ fn main() -> anyhow::Result<()> {
         cli.include_hidden,
         cli.clip,
         cli.verbose > 0,
+        cli.extensions,
+        cli.exclude,
     );
 
     // 1. SCANNING
@@ -74,10 +84,9 @@ fn main() -> anyhow::Result<()> {
     };
     info!("Found {} files.", files.len());
 
-    // 2. READING (Parallel)
+    // 2. READING
     info!("Phase 2: Reading content...");
     let reader = FsReader::new();
-
     let contexts: Vec<_> = files
         .par_iter()
         .map(|node| reader.read_file(node))
@@ -97,7 +106,6 @@ fn main() -> anyhow::Result<()> {
     if config.to_clipboard {
         let mut buffer = Vec::new();
         writer_strategy.write(&contexts, &config, &mut buffer)?;
-
         let output_str = String::from_utf8(buffer.clone())?;
 
         match Clipboard::new() {
@@ -111,16 +119,14 @@ fn main() -> anyhow::Result<()> {
             Err(e) => error!("Could not access clipboard: {}", e),
         }
 
-        // Handle File output if requested alongside clipboard
         if let Some(path) = &cli.output {
             let mut file = File::create(path)?;
             file.write_all(&buffer)?;
             info!("Context also written to: {:?}", path);
         } else {
-            warn!("Output copied to clipboard. Suppressing stdout to prevent flooding.");
+            warn!("Output copied to clipboard. Suppressing stdout.");
         }
     } else {
-        // Mode: Direct Stream (Legacy/Standard)
         match &cli.output {
             Some(path) => {
                 let file = File::create(path)?;
@@ -129,7 +135,6 @@ fn main() -> anyhow::Result<()> {
                 info!("Context written to: {:?}", path);
             }
             None => {
-                // Write to stdout
                 let stdout = io::stdout();
                 let handle = stdout.lock();
                 let mut buf_writer = BufWriter::new(handle);
@@ -141,7 +146,6 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Initializes the global tracing subscriber for logging.
 fn init_logging(verbosity: u8) {
     let level = match verbosity {
         0 => Level::WARN,
@@ -161,7 +165,6 @@ fn init_logging(verbosity: u8) {
 mod tests {
     use super::*;
 
-    /// Verifies that the Clap CLI definition is valid.
     #[test]
     fn verify_cli() {
         use clap::CommandFactory;
