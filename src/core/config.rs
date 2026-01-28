@@ -8,6 +8,7 @@ pub struct ContextConfig {
     pub output_path: Option<PathBuf>,
     pub max_depth: Option<usize>,
     pub include_hidden: bool,
+    pub to_clipboard: bool,
     pub verbose: bool,
 }
 
@@ -18,6 +19,7 @@ impl ContextConfig {
         output_path: Option<PathBuf>,
         max_depth: Option<usize>,
         include_hidden: bool,
+        to_clipboard: bool,
         verbose: bool,
     ) -> Self {
         Self {
@@ -25,6 +27,7 @@ impl ContextConfig {
             output_path,
             max_depth,
             include_hidden,
+            to_clipboard,
             verbose,
         }
     }
@@ -38,6 +41,7 @@ impl Default for ContextConfig {
             output_path: None,
             max_depth: None,
             include_hidden: false,
+            to_clipboard: false,
             verbose: false,
         }
     }
@@ -59,10 +63,10 @@ mod tests {
     #[test]
     fn test_new_config() {
         let path = PathBuf::from("/tmp");
-        let config = ContextConfig::new(path.clone(), None, Some(5), true, true);
+        let config = ContextConfig::new(path.clone(), None, Some(5), true, true, true);
 
         assert_eq!(config.root_path, path);
-        assert_eq!(config.max_depth, Some(5));
+        assert!(config.to_clipboard);
         assert!(config.include_hidden);
     }
 }

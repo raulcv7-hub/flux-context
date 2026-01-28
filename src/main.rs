@@ -1,12 +1,13 @@
 //! Entry point for the Context Engine CLI.
 //! Parses arguments and orchestrates the execution.
 
+use arboard::Clipboard;
 use clap::Parser;
 use rayon::prelude::*;
 use std::fs::File;
-use std::io::{self, BufWriter};
+use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
-use tracing::{error, info, Level};
+use tracing::{error, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use context_engine::adapters::fs_reader::FsReader;
@@ -28,6 +29,10 @@ struct Cli {
     /// Optional output file path. If not provided, prints to stdout.
     #[arg(short, long)]
     output: Option<PathBuf>,
+
+    /// Copy the result to the system clipboard.
+    #[arg(short, long, default_value_t = false)]
+    clip: bool,
 
     /// Maximum depth to traverse.
     #[arg(short, long)]
@@ -53,6 +58,7 @@ fn main() -> anyhow::Result<()> {
         cli.output.clone(),
         cli.depth,
         cli.include_hidden,
+        cli.clip,
         cli.verbose > 0,
     );
 
@@ -88,19 +94,47 @@ fn main() -> anyhow::Result<()> {
     info!("Phase 3: Generating output...");
     let writer_strategy = XmlWriter::new();
 
-    match &cli.output {
-        Some(path) => {
-            let file = File::create(path)?;
-            let mut buf_writer = BufWriter::new(file);
-            writer_strategy.write(&contexts, &config, &mut buf_writer)?;
-            info!("Context written to: {:?}", path);
+    if config.to_clipboard {
+        let mut buffer = Vec::new();
+        writer_strategy.write(&contexts, &config, &mut buffer)?;
+
+        let output_str = String::from_utf8(buffer.clone())?;
+
+        match Clipboard::new() {
+            Ok(mut clipboard) => {
+                if let Err(e) = clipboard.set_text(&output_str) {
+                    error!("Failed to copy to clipboard: {}", e);
+                } else {
+                    info!("Output copied to clipboard! ({} chars)", output_str.len());
+                }
+            }
+            Err(e) => error!("Could not access clipboard: {}", e),
         }
-        None => {
-            // Write to stdout if no file is specified
-            let stdout = io::stdout();
-            let handle = stdout.lock();
-            let mut buf_writer = BufWriter::new(handle);
-            writer_strategy.write(&contexts, &config, &mut buf_writer)?;
+
+        // Handle File output if requested alongside clipboard
+        if let Some(path) = &cli.output {
+            let mut file = File::create(path)?;
+            file.write_all(&buffer)?;
+            info!("Context also written to: {:?}", path);
+        } else {
+            warn!("Output copied to clipboard. Suppressing stdout to prevent flooding.");
+        }
+    } else {
+        // Mode: Direct Stream (Legacy/Standard)
+        match &cli.output {
+            Some(path) => {
+                let file = File::create(path)?;
+                let mut buf_writer = BufWriter::new(file);
+                writer_strategy.write(&contexts, &config, &mut buf_writer)?;
+                info!("Context written to: {:?}", path);
+            }
+            None => {
+                // Write to stdout
+                let stdout = io::stdout();
+                let handle = stdout.lock();
+                let mut buf_writer = BufWriter::new(handle);
+                writer_strategy.write(&contexts, &config, &mut buf_writer)?;
+            }
         }
     }
 
@@ -115,7 +149,10 @@ fn init_logging(verbosity: u8) {
         _ => Level::DEBUG,
     };
 
-    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(level)
+        .with_writer(io::stderr)
+        .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 }

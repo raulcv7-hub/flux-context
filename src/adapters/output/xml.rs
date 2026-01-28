@@ -52,29 +52,34 @@ impl ContextWriter for XmlWriter {
 
         // 1. Metadata
         xml_writer.write_event(Event::Start(BytesStart::new("metadata")))?;
-        
+
         // <project_root>
-        xml_writer.create_element("project_root")
+        xml_writer
+            .create_element("project_root")
             .write_text_content(BytesText::new(&config.root_path.to_string_lossy()))?;
-        
+
         // <scan_time>
-        xml_writer.create_element("scan_time")
+        xml_writer
+            .create_element("scan_time")
             .write_text_content(BytesText::new(&Local::now().to_rfc3339()))?;
-            
+
         // <stats>
         xml_writer.write_event(Event::Start(BytesStart::new("stats")))?;
-        xml_writer.create_element("total_files")
+        xml_writer
+            .create_element("total_files")
             .write_text_content(BytesText::new(&files.len().to_string()))?;
-        
+
         let total_tokens: usize = files.iter().map(|f| f.token_count).sum();
-        xml_writer.create_element("total_tokens")
+        xml_writer
+            .create_element("total_tokens")
             .write_text_content(BytesText::new(&total_tokens.to_string()))?;
         xml_writer.write_event(Event::End(BytesEnd::new("stats")))?;
 
         // <directory_structure> (Tree)
         let tree_view = self.generate_tree(files);
-        xml_writer.create_element("directory_structure")
-             .write_text_content(BytesText::new(&tree_view))?;
+        xml_writer
+            .create_element("directory_structure")
+            .write_text_content(BytesText::new(&tree_view))?;
 
         xml_writer.write_event(Event::End(BytesEnd::new("metadata")))?;
 
@@ -86,19 +91,23 @@ impl ContextWriter for XmlWriter {
             // Fix borrow warning: explicit casting or handling of the Cow str
             elem.push_attribute(("path", file.relative_path.to_string_lossy().as_ref()));
             elem.push_attribute(("language", file.language.as_str()));
-            
+
             xml_writer.write_event(Event::Start(elem))?;
 
             match &file.content {
                 ContentType::Text(text) => {
                     let sanitized = self.sanitize_content(text);
                     xml_writer.write_event(Event::CData(BytesCData::new(&sanitized)))?;
-                },
+                }
                 ContentType::Binary => {
-                    xml_writer.write_event(Event::CData(BytesCData::new("[BINARY CONTENT SKIPPED]")))?;
-                },
+                    xml_writer
+                        .write_event(Event::CData(BytesCData::new("[BINARY CONTENT SKIPPED]")))?;
+                }
                 ContentType::Error(e) => {
-                    xml_writer.write_event(Event::CData(BytesCData::new(format!("[ERROR READING FILE: {}]", e))))?;
+                    xml_writer.write_event(Event::CData(BytesCData::new(format!(
+                        "[ERROR READING FILE: {}]",
+                        e
+                    ))))?;
                 }
             }
 
@@ -149,15 +158,13 @@ mod tests {
     fn test_xml_sanitization() {
         let config = ContextConfig::default();
         let malicious_content = "code with ]]> in it";
-        let files = vec![
-            FileContext::new(
-                PathBuf::from("bad.rs"),
-                PathBuf::from("bad.rs"),
-                ContentType::Text(malicious_content.to_string()),
-                "rust".to_string(),
-                5
-            )
-        ];
+        let files = vec![FileContext::new(
+            PathBuf::from("bad.rs"),
+            PathBuf::from("bad.rs"),
+            ContentType::Text(malicious_content.to_string()),
+            "rust".to_string(),
+            5,
+        )];
 
         let writer = XmlWriter::new();
         let mut buffer = Vec::new();

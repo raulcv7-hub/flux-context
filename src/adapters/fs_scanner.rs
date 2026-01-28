@@ -1,9 +1,9 @@
-use anyhow::{Result};
-use ignore::{DirEntry, WalkBuilder};
-use tracing::{debug, warn};
 use crate::core::config::ContextConfig;
 use crate::core::file::FileNode;
 use crate::ports::scanner::ProjectScanner;
+use anyhow::Result;
+use ignore::{DirEntry, WalkBuilder};
+use tracing::{debug, warn};
 
 /// Implementation of ProjectScanner using the 'ignore' crate (ripgrep engine).
 #[derive(Default)]
@@ -19,25 +19,36 @@ impl FsScanner {
     /// (e.g., Lockfiles, noisy directories) regardless of gitignore.
     fn is_noise(entry: &DirEntry) -> bool {
         let file_name = entry.file_name().to_string_lossy();
-        
+
         // Nivel 1 & 2: Hard Ignores & Ecosystem Noise
         const NOISE_FILES: &[&str] = &[
             // Rust
             "Cargo.lock",
             // JS/Node
-            "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+            "package-lock.json",
+            "yarn.lock",
+            "pnpm-lock.yaml",
             // Python
-            "poetry.lock", "Pipfile.lock",
+            "poetry.lock",
+            "Pipfile.lock",
             // System
-            ".DS_Store", "Thumbs.db"
+            ".DS_Store",
+            "Thumbs.db",
         ];
 
         const NOISE_DIRS: &[&str] = &[
-            ".git", ".svn", ".hg",
-            "target", "build", "dist",
+            ".git",
+            ".svn",
+            ".hg",
+            "target",
+            "build",
+            "dist",
             "node_modules",
-            "__pycache__", ".venv", "venv",
-            ".idea", ".vscode"
+            "__pycache__",
+            ".venv",
+            "venv",
+            ".idea",
+            ".vscode",
         ];
 
         if NOISE_FILES.contains(&file_name.as_ref()) {
@@ -45,8 +56,9 @@ impl FsScanner {
         }
 
         // Only check directory noise if it IS a directory to avoid false positives
-        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) 
-            && NOISE_DIRS.contains(&file_name.as_ref()) {
+        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
+            && NOISE_DIRS.contains(&file_name.as_ref())
+        {
             return true;
         }
 
@@ -58,12 +70,16 @@ impl ProjectScanner for FsScanner {
     /// Scans the filesystem based on the provided configuration.
     fn scan(&self, config: &ContextConfig) -> Result<Vec<FileNode>> {
         let root = &config.root_path;
-        debug!("Starting scan at: {:?} with depth: {:?}", root, config.max_depth);
+        debug!(
+            "Starting scan at: {:?} with depth: {:?}",
+            root, config.max_depth
+        );
 
         let mut builder = WalkBuilder::new(root);
-        
-        builder.standard_filters(true)
-               .hidden(!config.include_hidden); 
+
+        builder
+            .standard_filters(true)
+            .hidden(!config.include_hidden);
 
         if let Some(depth) = config.max_depth {
             builder.max_depth(Some(depth));
@@ -82,7 +98,7 @@ impl ProjectScanner for FsScanner {
                     }
 
                     let path = entry.path().to_path_buf();
-                    
+
                     // Calculate relative path for display
                     let relative_path = match path.strip_prefix(root) {
                         Ok(p) => p.to_path_buf(),
@@ -132,7 +148,7 @@ mod tests {
         let scanner = FsScanner::new();
 
         // Case 1: Default scan (Should find file1.txt, ignore hidden, ignore gitignored)
-        let config = ContextConfig::new(root.to_path_buf(), None, None, false, false);
+        let config = ContextConfig::new(root.to_path_buf(), None, None, false, false, false);
         let results = scanner.scan(&config)?;
 
         let found_paths: Vec<_> = results
@@ -145,7 +161,7 @@ mod tests {
         assert!(!found_paths.contains(&"ignored_dir/file2.txt".to_string()));
 
         // Case 2: Include hidden
-        let config_hidden = ContextConfig::new(root.to_path_buf(), None, None, true, false);
+        let config_hidden = ContextConfig::new(root.to_path_buf(), None, None, true, false, false);
         let results_hidden = scanner.scan(&config_hidden)?;
         let found_paths_hidden: Vec<_> = results_hidden
             .iter()
