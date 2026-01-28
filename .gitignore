@@ -1,2 +1,9 @@
 /target
 /docs/INFO.md
+.idea/
+.vscode/
+*.swp
+*.iml
+.DS_Store
+*.pdb
+**/*.rs.bk

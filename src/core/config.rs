@@ -60,7 +60,7 @@ mod tests {
     fn test_new_config() {
         let path = PathBuf::from("/tmp");
         let config = ContextConfig::new(path.clone(), None, Some(5), true, true);
-        
+
         assert_eq!(config.root_path, path);
         assert_eq!(config.max_depth, Some(5));
         assert!(config.include_hidden);

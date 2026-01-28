@@ -1,8 +1,8 @@
-use std::fs;
-use std::path::Path;
 use crate::core::content::{ContentType, FileContext};
 use crate::core::file::FileNode;
 use crate::ports::reader::FileReader;
+use std::fs;
+use std::path::Path;
 
 /// Implementation of FileReader that reads from the local filesystem.
 pub struct FsReader;
@@ -20,7 +20,7 @@ impl FsReader {
             .unwrap_or("text")
             .to_lowercase()
     }
-    
+
     /// Simple heuristic for token counting (approximation).
     fn estimate_tokens(&self, text: &str) -> usize {
         text.len() / 3
@@ -31,13 +31,13 @@ impl FileReader for FsReader {
     /// Reads the file from disk, handling text/binary distinction.
     fn read_file(&self, node: &FileNode) -> FileContext {
         let language = self.detect_language(&node.path);
-        
+
         // Attempt to read file as String
         let (content, tokens) = match fs::read_to_string(&node.path) {
             Ok(text) => {
                 let count = self.estimate_tokens(&text);
                 (ContentType::Text(text), count)
-            },
+            }
             Err(_) => {
                 // If read_to_string fails, it's likely binary or permission error.
                 // We assume binary for now to be safe.

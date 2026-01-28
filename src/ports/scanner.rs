@@ -1,6 +1,6 @@
-use anyhow::Result;
 use crate::core::config::ContextConfig;
 use crate::core::file::FileNode;
+use anyhow::Result;
 
 /// Interface for scanning a directory structure.
 pub trait ProjectScanner {

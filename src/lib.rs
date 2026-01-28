@@ -5,14 +5,12 @@
 //! - `ports`: Interfaces (Traits) defining interaction contracts.
 //! - `adapters`: Infrastructure implementations (FS, I/O).
 
+pub mod adapters;
 pub mod core;
 pub mod ports;
-pub mod adapters;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     /// Verifies that the library structure allows compilation and testing.
     #[test]
     fn architecture_sanity_check() {
