@@ -3,7 +3,7 @@ name: Release Build
 on:
   push:
     tags:
-      - 'v*' # Se ejecuta solo cuando subes un tag como v1.0.0, v0.1.0, etc.
+      - 'v*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,6 +30,12 @@ jobs:
 
       - name: Cache Cargo
         uses: swatinem/rust-cache@v2
+
+      - name: Install Linux Dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
       - name: Build Release
         run: cargo build --release --verbose
