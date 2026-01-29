@@ -1,0 +1,46 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*' # Se ejecuta solo cuando subes un tag como v1.0.0, v0.1.0, etc.
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-release:
+    name: Build Release Assets
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: context_engine
+            asset_name: context_engine-linux-amd64
+          - os: windows-latest
+            artifact_name: context_engine.exe
+            asset_name: context_engine-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: context_engine
+            asset_name: context_engine-macos-amd64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Cargo
+        uses: swatinem/rust-cache@v2
+
+      - name: Build Release
+        run: cargo build --release --verbose
+
+      - name: Rename Binary
+        shell: bash
+        run: |
+          cp target/release/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+
+      - name: Upload Binaries to Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ matrix.asset_name }}
