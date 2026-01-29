@@ -27,6 +27,9 @@ zip = "7.2.0"
 regex = "1.10"
 calamine = "0.32.0"
 
+# TUI UI
+ratatui = "0.26"
+crossterm = "0.27"
 
 [dev-dependencies]
 # Testing

@@ -5,21 +5,17 @@ use tempfile::tempdir;
 
 #[test]
 fn test_cli_basic_flow() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Setup
     let dir = tempdir()?;
     let root = dir.path();
 
-    // Create dummy files
     File::create(root.join("main.rs"))?;
     fs::create_dir(root.join("src"))?;
     File::create(root.join("src/lib.rs"))?;
 
-    // 2. Run command
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("context"));
 
     cmd.arg(root).arg("--format").arg("markdown").arg("-v");
 
-    // 3. Assert
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("# Project Context Report"))

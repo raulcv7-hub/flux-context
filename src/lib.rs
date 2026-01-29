@@ -4,10 +4,12 @@
 //! - `core`: Domain logic and business rules (Pure Rust).
 //! - `ports`: Interfaces (Traits) defining interaction contracts.
 //! - `adapters`: Infrastructure implementations (FS, I/O).
+//! - `ui`: Terminal User Interface.
 
 pub mod adapters;
 pub mod core;
 pub mod ports;
+pub mod ui;
 
 #[cfg(test)]
 mod tests {

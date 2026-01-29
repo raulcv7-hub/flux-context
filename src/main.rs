@@ -18,6 +18,7 @@ use context::core::config::{ContextConfig, OutputFormat};
 use context::ports::reader::FileReader;
 use context::ports::scanner::ProjectScanner;
 use context::ports::writer::ContextWriter;
+use context::ui::run_tui;
 
 /// High-performance AI Context Generator.
 #[derive(Parser, Debug)]
@@ -31,13 +32,17 @@ struct Cli {
     #[arg(short, long)]
     output: Option<PathBuf>,
 
-    /// Output format (xml, markdown).
+    /// Output format (xml, markdown, json).
     #[arg(short, long, value_enum, default_value_t = OutputFormat::Xml)]
     format: OutputFormat,
 
     /// Copy the result to the system clipboard.
     #[arg(short, long, default_value_t = false)]
     clip: bool,
+
+    /// Interactive mode (TUI) to select files manually.
+    #[arg(short = 'I', long, default_value_t = false)]
+    interactive: bool,
 
     /// Maximum depth to traverse.
     #[arg(short, long)]
@@ -91,7 +96,7 @@ fn main() -> anyhow::Result<()> {
     // 1. SCANNING
     info!("Phase 1: Scanning directory...");
     let scanner = FsScanner::new();
-    let files = match scanner.scan(&config) {
+    let mut files = match scanner.scan(&config) {
         Ok(f) => f,
         Err(e) => {
             error!("Scanning failed: {}", e);
@@ -99,6 +104,33 @@ fn main() -> anyhow::Result<()> {
         }
     };
     info!("Found {} files.", files.len());
+
+    // --- TUI INTERCEPTION ---
+    if cli.interactive {
+        info!("Launching Interactive Mode...");
+
+        match run_tui(&files, &config.root_path) {
+            Ok(Some(selected_paths)) => {
+                let prev_count = files.len();
+
+                files.retain(|node| selected_paths.contains(&node.relative_path));
+
+                info!(
+                    "Interactive selection: Kept {}/{} files.",
+                    files.len(),
+                    prev_count
+                );
+            }
+            Ok(None) => {
+                warn!("Interactive mode cancelled. Exiting.");
+                return Ok(());
+            }
+            Err(e) => {
+                error!("TUI failed: {}", e);
+                return Err(e);
+            }
+        }
+    }
 
     // 2. READING
     info!("Phase 2: Reading content...");
@@ -159,7 +191,6 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Helper to select strategy and write to memory buffer
 fn generate_output_buffer(
     files: &[context::core::content::FileContext],
     config: &ContextConfig,
