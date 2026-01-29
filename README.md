@@ -1,7 +1,6 @@
 # flux-context (CLI)
 
 [![Rust](https://img.shields.io/badge/built_with-Rust-dca282.svg)](https://www.rust-lang.org/)
-[![CI](https://github.com/TU_USUARIO/context-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/TU_USUARIO/context-engine/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Context** es una herramienta de CLI de alto rendimiento diseñada para ingerir repositorios de código y documentación compleja, transformándolos en un contexto único, limpio y optimizado para ser consumido por LLMs (ChatGPT, Claude, Llama 3).
