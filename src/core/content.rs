@@ -1,7 +1,5 @@
-use regex::Regex;
 use serde::Serialize;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 /// Enum representing the type of content found in a file.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -23,7 +21,6 @@ pub struct FileContext {
 }
 
 impl FileContext {
-    /// Creates a new FileContext.
     pub fn new(
         path: PathBuf,
         relative_path: PathBuf,
@@ -41,21 +38,36 @@ impl FileContext {
     }
 }
 
-static RE_NEWLINES: OnceLock<Regex> = OnceLock::new();
-static RE_TRAILING_SPACES: OnceLock<Regex> = OnceLock::new();
+/// Aggressively reduces content size.
+pub fn minify_content(content: &str, language: &str) -> String {
+    let indent_sensitive = ["py", "python", "yaml", "yml", "md", "markdown"];
 
-/// Reduces whitespace to save tokens.
-/// 1. Trims start/end of file.
-/// 2. Removes trailing spaces from every line.
-/// 3. Collapses 3+ newlines into 2 (Paragraph breaks).
-pub fn minify_content(content: &str) -> String {
-    let re_trailing = RE_TRAILING_SPACES.get_or_init(|| Regex::new(r"(?m)[ \t]+$").unwrap());
-    let no_trailing = re_trailing.replace_all(content, "");
+    let is_sensitive = indent_sensitive.contains(&language.to_lowercase().as_str());
 
-    let re_newlines = RE_NEWLINES.get_or_init(|| Regex::new(r"\n{3,}").unwrap());
-    let collapsed = re_newlines.replace_all(&no_trailing, "\n\n");
+    let lines = content.lines();
+    let mut minified = String::with_capacity(content.len());
 
-    collapsed.trim().to_string()
+    for line in lines {
+        // 1. Remove Trailing Spaces (Manual trim is faster than Regex for single line)
+        let trimmed_end = line.trim_end();
+
+        // 2. Remove Empty Lines
+        if trimmed_end.is_empty() {
+            continue;
+        }
+
+        // 3. Strip Indentation (Only for non-sensitive languages)
+        let final_line = if is_sensitive {
+            trimmed_end
+        } else {
+            trimmed_end.trim_start()
+        };
+
+        minified.push_str(final_line);
+        minified.push('\n');
+    }
+
+    minified
 }
 
 #[cfg(test)]
@@ -63,9 +75,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_minify_content() {
-        let input = "Line 1    \n\n\n\nLine 2 \t \n\nLine 3";
-        let expected = "Line 1\n\nLine 2\n\nLine 3";
-        assert_eq!(minify_content(input), expected);
+    fn test_minify_aggressive_rust() {
+        let input = r#"
+fn main() {
+    let x = 5;
+
+    if x > 0 {
+        println!("Hello");
+    }
+}
+"#;
+        let expected = "fn main() {\nlet x = 5;\nif x > 0 {\nprintln!(\"Hello\");\n}\n}\n";
+        let result = minify_content(input, "rs");
+        assert_eq!(result, expected);
     }
 }

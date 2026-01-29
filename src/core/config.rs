@@ -1,6 +1,6 @@
+use clap::ValueEnum;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use clap::ValueEnum;
 
 /// Enum defining available output formats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -51,15 +51,9 @@ impl ContextConfig {
         include_paths: Vec<String>,
         exclude_paths: Vec<String>,
     ) -> Self {
-        let include_extensions = include_exts
-            .into_iter()
-            .map(|e| e.to_lowercase())
-            .collect();
-            
-        let exclude_extensions = exclude_exts
-            .into_iter()
-            .map(|e| e.to_lowercase())
-            .collect();
+        let include_extensions = include_exts.into_iter().map(|e| e.to_lowercase()).collect();
+
+        let exclude_extensions = exclude_exts.into_iter().map(|e| e.to_lowercase()).collect();
 
         Self {
             root_path,

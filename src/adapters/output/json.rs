@@ -99,7 +99,7 @@ impl ContextWriter for JsonWriter {
                 .map(|f| {
                     let mut new_f = f.clone();
                     if let ContentType::Text(ref t) = f.content {
-                        new_f.content = ContentType::Text(minify_content(t));
+                        new_f.content = ContentType::Text(minify_content(t, &f.language));
                     }
                     new_f
                 })

@@ -141,7 +141,7 @@ impl ContextWriter for XmlWriter {
             match &file.content {
                 ContentType::Text(text) => {
                     let processed = if config.minify {
-                        minify_content(text)
+                        minify_content(text, &file.language)
                     } else {
                         text.clone()
                     };

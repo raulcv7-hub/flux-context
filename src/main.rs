@@ -13,8 +13,8 @@ use context::adapters::fs_reader::FsReader;
 use context::adapters::fs_scanner::FsScanner;
 use context::adapters::output::json::JsonWriter;
 use context::adapters::output::markdown::MarkdownWriter;
-use context::adapters::output::xml::XmlWriter;
 use context::adapters::output::text::TextWriter;
+use context::adapters::output::xml::XmlWriter;
 use context::core::config::{ContextConfig, OutputFormat};
 use context::ports::reader::FileReader;
 use context::ports::scanner::ProjectScanner;
@@ -213,7 +213,7 @@ fn generate_output_buffer(
         OutputFormat::Json => {
             let writer = JsonWriter::new();
             writer.write(files, config, &mut buffer)?;
-        },
+        }
         OutputFormat::Text => {
             let writer = TextWriter::new();
             writer.write(files, config, &mut buffer)?;
