@@ -1,5 +1,5 @@
 [package]
-name = "context_engine"
+name = "context"
 version = "0.1.0"
 edition = "2021"
 authors = ["Raul"]
@@ -8,7 +8,7 @@ readme = "README.md"
 rust-version = "1.80"
 
 [dependencies]
-clap = { version = "4.5", features = ["derive", "cargo"] }
+clap = { version = "4.5.56", features = ["derive", "cargo"] }
 anyhow = "1.0"
 thiserror = "2.0"
 rayon = "1.10"

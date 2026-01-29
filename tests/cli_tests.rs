@@ -15,7 +15,7 @@ fn test_cli_basic_flow() -> Result<(), Box<dyn std::error::Error>> {
     File::create(root.join("src/lib.rs"))?;
 
     // 2. Run command
-    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("context_engine"));
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("context"));
 
     cmd.arg(root).arg("--format").arg("markdown").arg("-v");
 
@@ -37,7 +37,7 @@ fn test_cli_filtering_flow() -> Result<(), Box<dyn std::error::Error>> {
     File::create(root.join("keep.rs"))?;
     File::create(root.join("ignore.py"))?;
 
-    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("context_engine"));
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("context"));
 
     cmd.arg(root).arg("-e").arg("rs").arg("-v");
 

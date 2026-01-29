@@ -9,15 +9,15 @@ use std::path::PathBuf;
 use tracing::{error, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use context_engine::adapters::fs_reader::FsReader;
-use context_engine::adapters::fs_scanner::FsScanner;
-use context_engine::adapters::output::json::JsonWriter;
-use context_engine::adapters::output::markdown::MarkdownWriter;
-use context_engine::adapters::output::xml::XmlWriter;
-use context_engine::core::config::{ContextConfig, OutputFormat};
-use context_engine::ports::reader::FileReader;
-use context_engine::ports::scanner::ProjectScanner;
-use context_engine::ports::writer::ContextWriter;
+use context::adapters::fs_reader::FsReader;
+use context::adapters::fs_scanner::FsScanner;
+use context::adapters::output::json::JsonWriter;
+use context::adapters::output::markdown::MarkdownWriter;
+use context::adapters::output::xml::XmlWriter;
+use context::core::config::{ContextConfig, OutputFormat};
+use context::ports::reader::FileReader;
+use context::ports::scanner::ProjectScanner;
+use context::ports::writer::ContextWriter;
 
 /// High-performance AI Context Generator.
 #[derive(Parser, Debug)]
@@ -161,7 +161,7 @@ fn main() -> anyhow::Result<()> {
 
 // Helper to select strategy and write to memory buffer
 fn generate_output_buffer(
-    files: &[context_engine::core::content::FileContext],
+    files: &[context::core::content::FileContext],
     config: &ContextConfig,
 ) -> anyhow::Result<Vec<u8>> {
     let mut buffer = Vec::new();

@@ -19,14 +19,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: context_engine
-            asset_name: context_engine-linux-amd64
+            artifact_name: context
+            asset_name: context-linux-amd64
           - os: windows-latest
-            artifact_name: context_engine.exe
-            asset_name: context_engine-windows-amd64.exe
+            artifact_name: context.exe
+            asset_name: context-windows-amd64.exe
           - os: macos-latest
-            artifact_name: context_engine
-            asset_name: context_engine-macos-amd64
+            artifact_name: context
+            asset_name: context-macos-amd64
 
     steps:
       - uses: actions/checkout@v4
