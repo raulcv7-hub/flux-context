@@ -5,10 +5,9 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::core::config::ContextConfig;
-use crate::core::content::{ContentType, FileContext};
+use crate::core::content::{minify_content, ContentType, FileContext};
 use crate::ports::writer::ContextWriter;
 
-/// Helper struct for tree visualization.
 #[derive(Default)]
 struct TreeNode {
     children: BTreeMap<String, TreeNode>,
@@ -42,7 +41,6 @@ impl TreeNode {
     }
 }
 
-/// Implementation of ContextWriter that outputs Markdown format.
 #[derive(Default)]
 pub struct MarkdownWriter;
 
@@ -71,7 +69,6 @@ impl ContextWriter for MarkdownWriter {
         config: &ContextConfig,
         mut writer: W,
     ) -> Result<()> {
-        // 1. Header & Metadata
         writeln!(writer, "# Project Context Report")?;
         writeln!(
             writer,
@@ -86,7 +83,6 @@ impl ContextWriter for MarkdownWriter {
         let total_tokens: usize = files.iter().map(|f| f.token_count).sum();
         writeln!(writer, "- **Tokens (Est.):** {}\n", total_tokens)?;
 
-        // 2. Directory Structure
         writeln!(writer, "## Project Structure")?;
         let root_name = config
             .root_path
@@ -102,7 +98,6 @@ impl ContextWriter for MarkdownWriter {
         )?;
         writeln!(writer, "```\n")?;
 
-        // 3. File Contents
         writeln!(writer, "## File Contents")?;
 
         for file in files {
@@ -110,8 +105,14 @@ impl ContextWriter for MarkdownWriter {
 
             match &file.content {
                 ContentType::Text(text) => {
+                    let processed = if config.minify {
+                        minify_content(text)
+                    } else {
+                        text.to_string()
+                    };
+
                     writeln!(writer, "```{}", file.language)?;
-                    writeln!(writer, "{}", text)?;
+                    writeln!(writer, "{}", processed)?;
                     writeln!(writer, "```\n")?;
                 }
                 ContentType::Binary => {

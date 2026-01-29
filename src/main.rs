@@ -40,6 +40,10 @@ struct Cli {
     #[arg(short, long, default_value_t = false)]
     clip: bool,
 
+    /// Minify output (reduce whitespace) to save tokens.
+    #[arg(short = 'm', long, default_value_t = false)] // NEW ARGUMENT
+    minify: bool,
+
     /// Interactive mode (TUI) to select files manually.
     #[arg(short = 'I', long, default_value_t = false)]
     interactive: bool,
@@ -86,6 +90,7 @@ fn main() -> anyhow::Result<()> {
         cli.depth,
         cli.include_hidden,
         cli.clip,
+        cli.minify,
         cli.verbose > 0,
         cli.extensions,
         cli.exclude_extensions,
@@ -108,13 +113,10 @@ fn main() -> anyhow::Result<()> {
     // --- TUI INTERCEPTION ---
     if cli.interactive {
         info!("Launching Interactive Mode...");
-
         match run_tui(&files, &config.root_path) {
             Ok(Some(selected_paths)) => {
                 let prev_count = files.len();
-
                 files.retain(|node| selected_paths.contains(&node.relative_path));
-
                 info!(
                     "Interactive selection: Kept {}/{} files.",
                     files.len(),
@@ -131,6 +133,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
+    // ------------------------
 
     // 2. READING
     info!("Phase 2: Reading content...");

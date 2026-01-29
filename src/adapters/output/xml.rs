@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::core::config::ContextConfig;
-use crate::core::content::{ContentType, FileContext};
+use crate::core::content::{minify_content, ContentType, FileContext};
 use crate::ports::writer::ContextWriter;
 
 /// Internal struct to represent the directory tree in memory before printing.
@@ -72,10 +72,7 @@ impl XmlWriter {
 
         let mut output = String::new();
         output.push_str(&format!("{}\n", root_name));
-
-        // Start rendering children
         root_node.render("", &mut output);
-
         output
     }
 
@@ -98,43 +95,33 @@ impl ContextWriter for XmlWriter {
     ) -> Result<()> {
         let mut xml_writer = Writer::new_with_indent(writer, b' ', 4);
 
-        // Root Element <context>
         xml_writer.write_event(Event::Start(BytesStart::new("context")))?;
 
         // 1. Metadata
         xml_writer.write_event(Event::Start(BytesStart::new("metadata")))?;
-
-        // <project_root>
         xml_writer
             .create_element("project_root")
             .write_text_content(BytesText::new(&config.root_path.to_string_lossy()))?;
-
-        // <scan_time>
         xml_writer
             .create_element("scan_time")
             .write_text_content(BytesText::new(&Local::now().to_rfc3339()))?;
 
-        // <stats>
         xml_writer.write_event(Event::Start(BytesStart::new("stats")))?;
         xml_writer
             .create_element("total_files")
             .write_text_content(BytesText::new(&files.len().to_string()))?;
-
         let total_tokens: usize = files.iter().map(|f| f.token_count).sum();
         xml_writer
             .create_element("total_tokens")
             .write_text_content(BytesText::new(&total_tokens.to_string()))?;
         xml_writer.write_event(Event::End(BytesEnd::new("stats")))?;
 
-        // <directory_structure> (Recursive Tree)
         let root_name = config
             .root_path
             .file_name()
             .map(|n| n.to_string_lossy())
             .unwrap_or_else(|| ".".into());
-
         let tree_view = self.generate_tree(files, &root_name);
-
         xml_writer
             .create_element("directory_structure")
             .write_text_content(BytesText::new(&tree_view))?;
@@ -153,7 +140,13 @@ impl ContextWriter for XmlWriter {
 
             match &file.content {
                 ContentType::Text(text) => {
-                    let sanitized = self.sanitize_content(text);
+                    let processed = if config.minify {
+                        minify_content(text)
+                    } else {
+                        text.clone()
+                    };
+
+                    let sanitized = self.sanitize_content(&processed);
                     xml_writer.write_event(Event::CData(BytesCData::new(&sanitized)))?;
                 }
                 ContentType::Binary => {

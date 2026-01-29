@@ -6,10 +6,8 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::core::config::ContextConfig;
-use crate::core::content::FileContext;
+use crate::core::content::{minify_content, ContentType, FileContext};
 use crate::ports::writer::ContextWriter;
-
-// --- DTOs for JSON Structure ---
 
 #[derive(Serialize)]
 struct JsonReport<'a> {
@@ -31,7 +29,6 @@ struct JsonStats {
     total_tokens: usize,
 }
 
-// --- Tree Logic (Duplicated code from xml.rs) ---
 #[derive(Default)]
 struct TreeNode {
     children: BTreeMap<String, TreeNode>,
@@ -61,8 +58,6 @@ impl TreeNode {
         }
     }
 }
-
-// --- Adapter Implementation ---
 
 #[derive(Default)]
 pub struct JsonWriter;
@@ -98,6 +93,21 @@ impl ContextWriter for JsonWriter {
             .map(|n| n.to_string_lossy())
             .unwrap_or_else(|| ".".into());
 
+        let processed_files: Vec<FileContext> = if config.minify {
+            files
+                .iter()
+                .map(|f| {
+                    let mut new_f = f.clone();
+                    if let ContentType::Text(ref t) = f.content {
+                        new_f.content = ContentType::Text(minify_content(t));
+                    }
+                    new_f
+                })
+                .collect()
+        } else {
+            files.to_vec()
+        };
+
         let report = JsonReport {
             metadata: JsonMetadata {
                 project_root: config.root_path.to_string_lossy().to_string(),
@@ -108,7 +118,7 @@ impl ContextWriter for JsonWriter {
                 },
                 directory_tree: self.generate_tree(files, &root_name),
             },
-            files,
+            files: &processed_files,
         };
 
         serde_json::to_writer_pretty(writer, &report)?;
