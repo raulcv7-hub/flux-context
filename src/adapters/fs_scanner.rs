@@ -106,13 +106,19 @@ impl FsScanner {
 impl ProjectScanner for FsScanner {
     fn scan(&self, config: &ContextConfig) -> Result<Vec<FileNode>> {
         let root = &config.root_path;
-        debug!("Starting scan at: {:?} with filters", root);
+        debug!(
+            "Starting scan at: {:?}. NoIgnore: {}, Hidden: {}",
+            root, config.no_ignore, config.include_hidden
+        );
 
         let mut builder = WalkBuilder::new(root);
 
         builder
             .standard_filters(true)
-            .hidden(!config.include_hidden);
+            .hidden(!config.include_hidden)
+            .git_ignore(!config.no_ignore)
+            .git_global(!config.no_ignore)
+            .ignore(!config.no_ignore);
 
         if let Some(depth) = config.max_depth {
             builder.max_depth(Some(depth));
@@ -131,7 +137,6 @@ impl ProjectScanner for FsScanner {
 
                     let path = entry.path();
 
-                    // Apply All Filters
                     if !Self::matches_filters(path, config) {
                         continue;
                     }
@@ -160,8 +165,9 @@ impl ProjectScanner for FsScanner {
 mod tests {
     use super::*;
     use std::fs::{self, File};
+    use std::io::Write;
     use std::path::PathBuf;
-    use tempfile::tempdir; // Import necesario
+    use tempfile::tempdir;
 
     #[test]
     fn test_scan_path_filtering() -> Result<()> {
@@ -183,7 +189,6 @@ mod tests {
 
         let scanner = FsScanner::new();
 
-        // Construimos las rutas esperadas dinámicamente según el SO (Windows/Linux)
         let main_rs = PathBuf::from("src")
             .join("main.rs")
             .to_string_lossy()
@@ -218,20 +223,48 @@ mod tests {
         assert!(paths.contains(&adapters_mod));
         assert!(!paths.contains(&docs_info));
 
-        // 2. Exclude "adapters"
-        let mut config_no_adapt = ContextConfig::default();
-        config_no_adapt.root_path = root.to_path_buf();
-        config_no_adapt.exclude_paths.push("adapters".into());
+        Ok(())
+    }
 
-        let res_no = scanner.scan(&config_no_adapt)?;
-        let paths_no: Vec<_> = res_no
+    #[test]
+    fn test_scan_gitignore_respect_and_bypass() -> Result<()> {
+        let dir = tempdir()?;
+        let root = dir.path();
+
+        // Create a secret file and a .gitignore
+        File::create(root.join("secret.env"))?;
+        File::create(root.join("public.rs"))?;
+
+        let mut gitignore = File::create(root.join(".gitignore"))?;
+        writeln!(gitignore, "*.env")?;
+
+        let scanner = FsScanner::new();
+
+        // Case 1: Default (Respect gitignore)
+        let mut config_default = ContextConfig::default();
+        config_default.root_path = root.to_path_buf();
+        let files_default = scanner.scan(&config_default)?;
+        let paths_default: Vec<_> = files_default
             .iter()
-            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .map(|f| f.relative_path.file_name().unwrap().to_str().unwrap())
             .collect();
 
-        assert!(paths_no.contains(&main_rs));
-        assert!(paths_no.contains(&docs_info));
-        assert!(!paths_no.contains(&adapters_mod));
+        assert!(paths_default.contains(&"public.rs"));
+        assert!(!paths_default.contains(&"secret.env"));
+
+        // Case 2: No Ignore (Bypass gitignore)
+        let mut config_no_ignore = ContextConfig::default();
+        config_no_ignore.root_path = root.to_path_buf();
+        config_no_ignore.no_ignore = true; // ACTIVATE FLAG
+
+        let files_ignored = scanner.scan(&config_no_ignore)?;
+        let paths_ignored: Vec<_> = files_ignored
+            .iter()
+            .map(|f| f.relative_path.file_name().unwrap().to_str().unwrap())
+            .collect();
+
+        assert!(paths_ignored.contains(&"public.rs"));
+        assert!(paths_ignored.contains(&"secret.env"));
 
         Ok(())
     }

@@ -42,7 +42,7 @@ struct Cli {
     clip: bool,
 
     /// Minify output (reduce whitespace) to save tokens.
-    #[arg(short = 'm', long, default_value_t = false)] // NEW ARGUMENT
+    #[arg(short = 'm', long, default_value_t = false)]
     minify: bool,
 
     /// Interactive mode (TUI) to select files manually.
@@ -56,6 +56,10 @@ struct Cli {
     /// Include hidden files and directories.
     #[arg(long, default_value_t = false)]
     include_hidden: bool,
+
+    /// Ignore gitignore and .ignore files.
+    #[arg(long, default_value_t = false)]
+    no_ignore: bool,
 
     /// Filter by extension (comma separated).
     #[arg(short = 'e', long, value_delimiter = ',')]
@@ -90,6 +94,7 @@ fn main() -> anyhow::Result<()> {
         cli.format,
         cli.depth,
         cli.include_hidden,
+        cli.no_ignore,
         cli.clip,
         cli.minify,
         cli.verbose > 0,
