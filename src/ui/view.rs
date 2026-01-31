@@ -45,7 +45,11 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
 
     // --- Status Bar Construction ---
     let fmt_str = format!("{:?}", app.config.output_format);
-    let clip_str = if app.config.to_clipboard { "[ON]" } else { "[OFF]" };
+    let clip_str = if app.config.to_clipboard {
+        "[ON]"
+    } else {
+        "[OFF]"
+    };
     let min_str = if app.config.minify { "[ON]" } else { "[OFF]" };
 
     let status_text = format!(

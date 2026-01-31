@@ -123,9 +123,9 @@ fn main() -> anyhow::Result<()> {
             Ok(Some((selected_paths, new_config))) => {
                 let prev_count = files.len();
                 files.retain(|node| selected_paths.contains(&node.relative_path));
-                
+
                 config = new_config;
-                
+
                 info!(
                     "Interactive selection: Kept {}/{} files. Config updated (Fmt: {:?}, Clip: {}, Min: {})",
                     files.len(),

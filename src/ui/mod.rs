@@ -71,7 +71,7 @@ fn run_app_loop(
                         KeyCode::Char(' ') => app.toggle_selection(),
                         KeyCode::Right => app.toggle_expand(),
                         KeyCode::Left => app.toggle_expand(),
-                        
+
                         _ => {}
                     }
                 }

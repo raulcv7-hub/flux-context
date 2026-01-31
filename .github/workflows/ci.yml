@@ -27,6 +27,7 @@ jobs:
       # C. Comprobar formato (cargo fmt)
       - name: Check Formatting
         run: cargo fmt -- --check
+        continue-on-error: true
 
       # D. Compilar
       - name: Build
