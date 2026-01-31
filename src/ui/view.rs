@@ -8,7 +8,7 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
-        .split(frame.size());
+        .split(frame.area());
 
     let items: Vec<ListItem> = app
         .view_items
