@@ -7,8 +7,8 @@ use ratatui::{
 pub fn render_app(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)]) // Main list + Status bar
-        .split(frame.area());
+        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .split(frame.area()); // FIX: Use area() instead of size()
 
     let items: Vec<ListItem> = app
         .view_items
@@ -43,7 +43,6 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
 
     frame.render_stateful_widget(list, chunks[0], &mut app.list_state);
 
-    // --- Status Bar Construction ---
     let fmt_str = format!("{:?}", app.config.output_format);
     let clip_str = if app.config.to_clipboard {
         "[ON]"
@@ -52,9 +51,14 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
     };
     let min_str = if app.config.minify { "[ON]" } else { "[OFF]" };
 
+    let out_str = match &app.config.output_path {
+        Some(p) => format!("File ({})", p.display()),
+        None => "Natural (Stdout)".to_string(),
+    };
+
     let status_text = format!(
-        " Format(f): {} | Clip(c): {} | Minify(m): {} | Confirm: Enter/c | Quit: q ",
-        fmt_str, clip_str, min_str
+        " Fmt(f): {} | Dest(o): {} | Clip(c): {} | Min(m): {} | Confirm: Enter ",
+        fmt_str, out_str, clip_str, min_str
     );
 
     let help = Paragraph::new(status_text)

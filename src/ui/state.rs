@@ -4,8 +4,6 @@ use ratatui::widgets::ListState;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-/// Represents a node in the UI tree.
-#[derive(Debug, Clone)]
 pub struct UiNode {
     pub path: PathBuf,
     pub name: String,
@@ -16,7 +14,6 @@ pub struct UiNode {
     pub children: Vec<usize>,
 }
 
-/// The application state logic.
 pub struct App {
     pub nodes: Vec<UiNode>,
     pub root_indices: Vec<usize>,
@@ -24,12 +21,11 @@ pub struct App {
     pub view_items: Vec<usize>,
     pub should_quit: bool,
     pub confirmed: bool,
-    // NEW: We hold the config here to modify it interactively
     pub config: ContextConfig,
+    pub default_filename: String,
 }
 
 impl App {
-    /// Initialize the App from the scanned file list and initial config.
     pub fn new(files: &[FileNode], _root_path: &Path, config: ContextConfig) -> Self {
         let mut nodes = Vec::new();
         let mut path_to_index: HashMap<PathBuf, usize> = HashMap::new();
@@ -81,6 +77,7 @@ impl App {
             should_quit: false,
             confirmed: false,
             config,
+            default_filename: "context_report".to_string(),
         };
 
         app.update_view();
@@ -91,7 +88,6 @@ impl App {
         app
     }
 
-    /// Rebuilds the view_items vector based on expansion state.
     pub fn update_view(&mut self) {
         self.view_items.clear();
         let roots = self.root_indices.clone();
@@ -171,14 +167,24 @@ impl App {
         self.list_state.select(Some(i));
     }
 
-    // --- Configuration Toggles ---
-
     pub fn toggle_clipboard(&mut self) {
         self.config.to_clipboard = !self.config.to_clipboard;
     }
 
     pub fn toggle_minify(&mut self) {
         self.config.minify = !self.config.minify;
+    }
+
+    pub fn toggle_output_destination(&mut self) {
+        if self.config.output_path.is_some() {
+            self.config.output_path = None;
+        } else {
+            let ext = self.get_current_extension();
+            self.config.output_path = Some(PathBuf::from(format!(
+                "{}.{}",
+                self.default_filename, ext
+            )));
+        }
     }
 
     pub fn cycle_format(&mut self) {
@@ -188,6 +194,24 @@ impl App {
             OutputFormat::Json => OutputFormat::Text,
             OutputFormat::Text => OutputFormat::Xml,
         };
+
+        // Calculate extension before mutably borrowing output_path
+        let ext = {
+            let ext = self.get_current_extension();
+            ext.to_string()
+        };
+        if let Some(path) = &mut self.config.output_path {
+            path.set_extension(ext);
+        }
+    }
+
+    fn get_current_extension(&self) -> &str {
+        match self.config.output_format {
+            OutputFormat::Xml => "xml",
+            OutputFormat::Markdown => "md",
+            OutputFormat::Json => "json",
+            OutputFormat::Text => "txt",
+        }
     }
 
     pub fn confirm(&mut self) {

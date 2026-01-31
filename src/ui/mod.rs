@@ -16,25 +16,20 @@ use crate::core::config::ContextConfig;
 use crate::core::file::FileNode;
 use crate::ui::state::App;
 
-/// Main entry point for the TUI.
-/// Returns Option<(SelectedPaths, ModifiedConfig)>
 pub fn run_tui(
     files: &[FileNode],
     root_path: &std::path::Path,
     initial_config: ContextConfig,
 ) -> Result<Option<(HashSet<PathBuf>, ContextConfig)>> {
-    // Setup Terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Init State with Config
     let mut app = App::new(files, root_path, initial_config);
     let res = run_app_loop(&mut terminal, &mut app);
 
-    // Restore Terminal
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
@@ -66,11 +61,11 @@ fn run_app_loop(
                         KeyCode::Char('c') => app.toggle_clipboard(),
                         KeyCode::Char('m') => app.toggle_minify(),
                         KeyCode::Char('f') => app.cycle_format(),
+                        KeyCode::Char('o') => app.toggle_output_destination(),
                         KeyCode::Up => app.move_up(),
                         KeyCode::Down => app.move_down(),
                         KeyCode::Char(' ') => app.toggle_selection(),
-                        KeyCode::Right => app.toggle_expand(),
-                        KeyCode::Left => app.toggle_expand(),
+                        KeyCode::Right | KeyCode::Left => app.toggle_expand(),
 
                         _ => {}
                     }
