@@ -88,7 +88,7 @@ fn main() -> anyhow::Result<()> {
 
     info!("Starting Context Engine...");
 
-    let config = ContextConfig::new(
+    let mut config = ContextConfig::new(
         cli.path,
         cli.output.clone(),
         cli.format,
@@ -119,14 +119,20 @@ fn main() -> anyhow::Result<()> {
     // --- TUI INTERCEPTION ---
     if cli.interactive {
         info!("Launching Interactive Mode...");
-        match run_tui(&files, &config.root_path) {
-            Ok(Some(selected_paths)) => {
+        match run_tui(&files, &config.root_path, config.clone()) {
+            Ok(Some((selected_paths, new_config))) => {
                 let prev_count = files.len();
                 files.retain(|node| selected_paths.contains(&node.relative_path));
+                
+                config = new_config;
+                
                 info!(
-                    "Interactive selection: Kept {}/{} files.",
+                    "Interactive selection: Kept {}/{} files. Config updated (Fmt: {:?}, Clip: {}, Min: {})",
                     files.len(),
-                    prev_count
+                    prev_count,
+                    config.output_format,
+                    config.to_clipboard,
+                    config.minify
                 );
             }
             Ok(None) => {
@@ -139,7 +145,6 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
-    // ------------------------
 
     // 2. READING
     info!("Phase 2: Reading content...");
@@ -174,7 +179,7 @@ fn main() -> anyhow::Result<()> {
             Err(e) => error!("Could not access clipboard: {}", e),
         }
 
-        if let Some(path) = &cli.output {
+        if let Some(path) = &config.output_path {
             let mut file = File::create(path)?;
             file.write_all(&buffer)?;
             info!("Context also written to: {:?}", path);
@@ -182,7 +187,8 @@ fn main() -> anyhow::Result<()> {
             warn!("Output copied to clipboard. Suppressing stdout.");
         }
     } else {
-        match &cli.output {
+        // Handle File or Stdout output
+        match &config.output_path {
             Some(path) => {
                 let file = File::create(path)?;
                 let mut buf_writer = BufWriter::new(file);

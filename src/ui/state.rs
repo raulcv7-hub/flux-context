@@ -1,3 +1,4 @@
+use crate::core::config::{ContextConfig, OutputFormat};
 use crate::core::file::FileNode;
 use ratatui::widgets::ListState;
 use std::collections::{HashMap, HashSet};
@@ -23,11 +24,13 @@ pub struct App {
     pub view_items: Vec<usize>,
     pub should_quit: bool,
     pub confirmed: bool,
+    // NEW: We hold the config here to modify it interactively
+    pub config: ContextConfig,
 }
 
 impl App {
-    /// Initialize the App from the scanned file list.
-    pub fn new(files: &[FileNode], _root_path: &Path) -> Self {
+    /// Initialize the App from the scanned file list and initial config.
+    pub fn new(files: &[FileNode], _root_path: &Path, config: ContextConfig) -> Self {
         let mut nodes = Vec::new();
         let mut path_to_index: HashMap<PathBuf, usize> = HashMap::new();
         let mut root_indices = Vec::new();
@@ -77,6 +80,7 @@ impl App {
             view_items: Vec::new(),
             should_quit: false,
             confirmed: false,
+            config,
         };
 
         app.update_view();
@@ -165,6 +169,25 @@ impl App {
             None => 0,
         };
         self.list_state.select(Some(i));
+    }
+
+    // --- Configuration Toggles ---
+
+    pub fn toggle_clipboard(&mut self) {
+        self.config.to_clipboard = !self.config.to_clipboard;
+    }
+
+    pub fn toggle_minify(&mut self) {
+        self.config.minify = !self.config.minify;
+    }
+
+    pub fn cycle_format(&mut self) {
+        self.config.output_format = match self.config.output_format {
+            OutputFormat::Xml => OutputFormat::Markdown,
+            OutputFormat::Markdown => OutputFormat::Json,
+            OutputFormat::Json => OutputFormat::Text,
+            OutputFormat::Text => OutputFormat::Xml,
+        };
     }
 
     pub fn confirm(&mut self) {

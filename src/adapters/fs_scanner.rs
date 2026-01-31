@@ -1,3 +1,4 @@
+// 🏛️ ARCHITECTURE ROLE: ADAPTER
 use anyhow::Result;
 use ignore::{DirEntry, WalkBuilder};
 use std::path::Path;
@@ -61,7 +62,6 @@ impl FsScanner {
     fn matches_filters(path: &Path, config: &ContextConfig) -> bool {
         let path_str = path.to_string_lossy();
 
-        // 1. Path Filters
         // Exclude wins over include
         if !config.exclude_paths.is_empty() {
             for exclude in &config.exclude_paths {
@@ -84,7 +84,6 @@ impl FsScanner {
             }
         }
 
-        // 2. Extension Filters
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
@@ -203,7 +202,6 @@ mod tests {
             .to_string_lossy()
             .to_string();
 
-        // 1. Include "src"
         let mut config_src = ContextConfig::default();
         config_src.root_path = root.to_path_buf();
         config_src.include_paths.push("src".into());
@@ -231,26 +229,43 @@ mod tests {
         let dir = tempdir()?;
         let root = dir.path();
 
+        // Create a fake .git directory to ensure the ignore crate treats this as a repo
+        fs::create_dir(root.join(".git"))?;
+
         // Create a secret file and a .gitignore
         File::create(root.join("secret.env"))?;
         File::create(root.join("public.rs"))?;
 
-        let mut gitignore = File::create(root.join(".gitignore"))?;
-        writeln!(gitignore, "*.env")?;
+        // Use a block to ensure the file is closed and flushed before scanning
+        {
+            let mut gitignore = File::create(root.join(".gitignore"))?;
+            writeln!(gitignore, "*.env")?;
+        }
 
         let scanner = FsScanner::new();
 
         // Case 1: Default (Respect gitignore)
         let mut config_default = ContextConfig::default();
         config_default.root_path = root.to_path_buf();
+        // Ensure no_ignore is false (default)
+        config_default.no_ignore = false;
+
         let files_default = scanner.scan(&config_default)?;
         let paths_default: Vec<_> = files_default
             .iter()
             .map(|f| f.relative_path.file_name().unwrap().to_str().unwrap())
             .collect();
 
-        assert!(paths_default.contains(&"public.rs"));
-        assert!(!paths_default.contains(&"secret.env"));
+        assert!(
+            paths_default.contains(&"public.rs"),
+            "Should contain public.rs. Found: {:?}",
+            paths_default
+        );
+        assert!(
+            !paths_default.contains(&"secret.env"),
+            "Should NOT contain secret.env (respected gitignore). Found: {:?}",
+            paths_default
+        );
 
         // Case 2: No Ignore (Bypass gitignore)
         let mut config_no_ignore = ContextConfig::default();
@@ -263,8 +278,14 @@ mod tests {
             .map(|f| f.relative_path.file_name().unwrap().to_str().unwrap())
             .collect();
 
-        assert!(paths_ignored.contains(&"public.rs"));
-        assert!(paths_ignored.contains(&"secret.env"));
+        assert!(
+            paths_ignored.contains(&"public.rs"),
+            "Should contain public.rs"
+        );
+        assert!(
+            paths_ignored.contains(&"secret.env"),
+            "Should contain secret.env (bypassed gitignore)"
+        );
 
         Ok(())
     }

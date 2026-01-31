@@ -75,19 +75,43 @@ context . -e rs -X tests
 context . -i src -i docs -m -o contexto_full.xml
 ```
 
-## Opciones Avanzadas
+### Modo Interactivo (Panel de Control)
+
+Al usar el flag `-I`, entras en una interfaz donde puedes navegar por el árbol de archivos.
+
+```bash
+context . -I
+```
+
+**Atajos en el modo interactivo:**
+
+| Tecla | Acción |
+| :--- | :--- |
+| `Espacio` | Seleccionar / Deseleccionar archivo o carpeta. |
+| `Enter` | **Confirmar y Ejecutar** con la configuración actual. |
+| `c` | Alternar **Clipboard** (ON/OFF). |
+| `m` | Alternar **Minificación** (ON/OFF). |
+| `f` | Cambiar **Formato** (XML -> Markdown -> JSON -> Text). |
+| `q` / `Esc` | Cancelar y Salir. |
+| `Derecha` / `Izquierda` | Expandir o colapsar carpetas. |
+
+## Opciones Avanzadas (CLI Flags)
 
 | Flag | Descripción |
 | :--- | :--- |
-| `-o`, `--output <FILE>` | Guarda el resultado en un archivo. |
-| `-c`, `--clip` | Copia el resultado al portapapeles del sistema. |
-| `--format <FMT>` | Formato de salida: `xml` (default), `markdown`, `json`, `text`. |
-| `-m`, `--minify` | Elimina indentación y líneas vacías para ahorrar tokens (Agresivo). |
-| `-I`, `--interactive` | Abre la interfaz TUI para selección visual. |
+| `-o`, `--output <FILE>` | Guarda el resultado en un archivo específico. |
+| `-c`, `--clip` | Copia el resultado al portapapeles automáticamente. |
+| `--format <FMT>` | Formato: `xml` (default), `markdown`, `json`, `text`. |
+| `-m`, `--minify` | Elimina indentación y líneas vacías (Ahorro de tokens). |
+| `-I`, `--interactive` | Abre la interfaz TUI para selección y configuración manual. |
 | `-e`, `--extensions` | Lista blanca de extensiones (ej: `rs,py`). |
 | `-x`, `--exclude` | Lista negra de extensiones (ej: `lock,png`). |
-| `-i`, `--include-path` | Solo incluye rutas que contengan este string. |
-| `-X`, `--exclude-path` | Excluye rutas que contengan este string. |
+| `-i`, `--include-path` | Solo incluye rutas que contengan este texto. |
+| `-X`, `--exclude-path` | Excluye rutas que contengan este texto. |
+| `-d`, `--depth <N>` | Máxima profundidad de escaneo en directorios. |
+| `--include-hidden` | Incluye archivos ocultos (empezados por punto). |
+| `--no-ignore` | Ignora los archivos `.gitignore` y `.ignore`. |
+| `-v`, `--verbose` | Muestra logs de depuración (usar `-vv` para más detalle). |
 
 ## Arquitectura
 

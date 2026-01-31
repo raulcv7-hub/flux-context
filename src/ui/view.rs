@@ -7,7 +7,7 @@ use ratatui::{
 pub fn render_app(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .constraints([Constraint::Min(0), Constraint::Length(3)]) // Main list + Status bar
         .split(frame.area());
 
     let items: Vec<ListItem> = app
@@ -41,11 +41,21 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol(">> ");
 
-    // We pass the mutable state here so Ratatui can update the scroll position
     frame.render_stateful_widget(list, chunks[0], &mut app.list_state);
 
-    let help_text = "Navigate: ↑/↓ | Toggle: Space | Expand/Collapse: Enter | Confirm: c | Quit: q";
-    let help = Paragraph::new(help_text).block(Block::default().borders(Borders::ALL));
+    // --- Status Bar Construction ---
+    let fmt_str = format!("{:?}", app.config.output_format);
+    let clip_str = if app.config.to_clipboard { "[ON]" } else { "[OFF]" };
+    let min_str = if app.config.minify { "[ON]" } else { "[OFF]" };
+
+    let status_text = format!(
+        " Format(f): {} | Clip(c): {} | Minify(m): {} | Confirm: Enter/c | Quit: q ",
+        fmt_str, clip_str, min_str
+    );
+
+    let help = Paragraph::new(status_text)
+        .block(Block::default().borders(Borders::ALL).title(" Controls "))
+        .style(Style::default().fg(Color::Cyan));
 
     frame.render_widget(help, chunks[1]);
 }
